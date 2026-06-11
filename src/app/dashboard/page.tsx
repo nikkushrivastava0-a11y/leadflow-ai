@@ -3,6 +3,7 @@ import { getLeads } from "@/lib/actions";
 import { LogoutButton } from "@/components/logout-button";
 import { AddLeadDialog } from "@/components/add-lead-dialog";
 import { LeadsTable } from "@/components/leads-table";
+import { UpgradeButton } from "@/components/upgrade-button";
 import { Lead } from "@/lib/types";
 
 export default async function DashboardPage() {
@@ -24,6 +25,7 @@ export default async function DashboardPage() {
         <h1 className="text-xl font-bold">LeadFlow AI</h1>
         <div className="flex items-center gap-4">
           <span className="text-sm text-slate-600">{user?.email}</span>
+          <UpgradeButton />
           <LogoutButton />
         </div>
       </header>
