@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { scoreLead } from "@/lib/gemini";
 
 export async function getLeads() {
   const supabase = await createClient();
@@ -39,6 +40,15 @@ export async function addLead(formData: {
 
   if (!user) return { error: "Not authenticated" };
 
+  // Get AI score from Gemini
+  const { score, reason } = await scoreLead({
+    name: formData.name,
+    email: formData.email,
+    phone: formData.phone,
+    source: formData.source,
+    notes: formData.notes,
+  });
+
   const { error } = await supabase.from("leads").insert({
     user_id: user.id,
     name: formData.name,
@@ -47,6 +57,8 @@ export async function addLead(formData: {
     source: formData.source || "manual",
     notes: formData.notes || null,
     status: "new",
+    score: score,
+    score_reason: reason,
   });
 
   if (error) {
