@@ -1,13 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache"; // <-- Ye Next.js ka cache-killer hai
 
 export default async function PublicLeadForm(props: {
   searchParams: Promise<{ success?: string }>;
 }) {
-  // Yahan humne searchParams ko await kar liya
   const searchParams = await props.searchParams;
 
-  // 1. Agar form submit ho gaya hai, toh Success message dikhao
   if (searchParams?.success) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
@@ -20,7 +19,6 @@ export default async function PublicLeadForm(props: {
     );
   }
 
-  // 2. Data save karne ka function (Server Action)
   async function submitLead(formData: FormData) {
     "use server";
     const supabase = await createClient();
@@ -29,7 +27,6 @@ export default async function PublicLeadForm(props: {
     const email = formData.get("email") as string;
     const phone = formData.get("phone") as string;
 
-    // Database mein entry daalo (with your exact user_id)
     const { error } = await supabase.from("leads").insert([
       { 
         name, 
@@ -38,7 +35,7 @@ export default async function PublicLeadForm(props: {
         source: "Website Form",
         status: "new", 
         score: 50,
-        user_id: "66fbe492-31fd-4034-bd66-ab634eaac313" 
+        user_id: "56fbe492-31fd-4034-bd65-ab634aeac313"
       }
     ]);
 
@@ -47,32 +44,29 @@ export default async function PublicLeadForm(props: {
       return;
     }
     
-    // Success hone par URL update kar do
+    // NAYA CODE: Dashboard ka cache turant uda do
+    revalidatePath("/dashboard");
+    
     redirect("/form?success=true");
   }
 
-  // 3. Form ka UI
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
         <h1 className="mb-6 text-center text-2xl font-bold text-slate-800">Contact Us</h1>
-        
         <form action={submitLead} className="flex flex-col gap-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Full Name</label>
             <input required type="text" name="name" className="w-full rounded-md border border-slate-300 p-2 outline-none focus:border-indigo-500 transition-colors" placeholder="John Doe" />
           </div>
-          
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Email Address</label>
             <input required type="email" name="email" className="w-full rounded-md border border-slate-300 p-2 outline-none focus:border-indigo-500 transition-colors" placeholder="john@example.com" />
           </div>
-          
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Phone Number</label>
             <input required type="tel" name="phone" className="w-full rounded-md border border-slate-300 p-2 outline-none focus:border-indigo-500 transition-colors" placeholder="+91 98765 43210" />
           </div>
-          
           <button type="submit" className="mt-4 w-full rounded-md bg-indigo-600 p-2.5 text-white hover:bg-indigo-700 font-semibold transition-colors">
             Submit Details
           </button>
