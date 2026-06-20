@@ -85,6 +85,6 @@ export default async function DynamicLeadForm(props: {
           <p className="text-center text-xs text-gray-400 mt-2">Powered by LeadFlow AI</p>
         </form>
       </div>
-    </div>
+    </div>  
   );
 }
