@@ -50,3 +50,14 @@
 - **How to verify:** In a nonproduction test with failing Supabase insert, submit form; page must render `?error=save` with alert and retry link. Successful test submission should redirect to `?success=true`.
 - **Status:** Code + preview build complete; failure-path QA pending.
 
+## P0-10 — Retired Gemini model replaced, fallback truthful
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/16
+- **Sources:** `src/lib/gemini.ts`, `tests/gemini.test.ts`, `package.json`, `.github/workflows/scoring-tests.yml`.
+- **Changes:** retired 2.0 Flash → current stable/configurable 3.5 Flash-Lite default; bound 8s model request; no raw names/contacts in API prompt; fallback labeled rule-based; numeric zero remains zero; parsed JSON validated.
+- **Model source:** Google Gemini API deprecations and models documentation: https://ai.google.dev/gemini-api/docs/deprecations and https://ai.google.dev/gemini-api/docs/models
+- **Build:** Vercel preview `dpl_82rfmGXN8xJpn6WJ1iC7V6M5aJXS` for commit `aac5992` READY.
+- **Unit tests:** GitHub Actions https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42516212884 **SUCCESS**. `scoring-tests` job and `Unit tests (no external API calls)` step confirmed successful.
+- **Tests not done:** No real Gemini API call, credential read, budget verification, or privacy consent audit. The model may depend on provider account entitlements. These remain launch gates.
+- **How to verify:** Inspect PR and Actions run; in a configured nonprod environment submit synthetic lead, verify AI score; disable key and verify clearly labelled rule-based fallback without blocking lead capture.
+- **Status:** Code, CI unit tests and preview build passed. Live model and policy verification pending.
+
