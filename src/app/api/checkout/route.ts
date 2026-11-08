@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-// @ts-ignore
 import Razorpay from "razorpay";
 
 const razorpay = new Razorpay({
