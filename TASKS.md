@@ -48,6 +48,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [ ] **P2-02** Design a non-generic coaching-centre landing page grounded in visual references.
 - [ ] **P2-03** Mobile responsive QA for form and CRM, 390px to desktop.
 - [ ] **P2-04** Meaningful titles/descriptions, sitemap, robots and truthful social preview.
+- [x] **P2-04a** Replace starter metadata, generate public-only sitemap/robots, noindex private pages (social image and browser QA pending).
 - [ ] **P2-05** Verify HTTPS/deployment domains; enforce safe redirect policy.
 - [ ] **P2-06** Privacy-respecting conversion analytics and consent handling.
 - [ ] **P2-07** Accessibility and keyboard checks, contrast and reduced motion.
