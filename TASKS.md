@@ -23,7 +23,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [ ] **P0-05** Restore connected Supabase availability and inspect actual `leads`/`clients` schema, RLS and privileges.
 - [x] **P0-06** Resolve mismatch between manual `user_id` lead writes and dashboard `client_slug` queries.
 - [x] **P0-07** Validate public form fields and ensure submitted slug belongs to a real client before insert.
-- [ ] **P0-08** Add genuine request throttling, spam resistance and duplicate handling to public enquiry path.
+- [x] **P0-08** Add genuine request throttling, spam resistance and duplicate handling to public enquiry path.
 - [x] **P0-09** Display public form submission failures instead of silently doing nothing.
 - [x] **P0-10** Remove hard-coded retired Gemini model; configure an actually available model with timeouts.
 - [x] **P0-11** Model scoring: schema validation, prompt-injection isolation and truthful unavailable state.
