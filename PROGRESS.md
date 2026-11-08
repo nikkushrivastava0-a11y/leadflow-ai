@@ -211,3 +211,12 @@
 - **How to verify:** Review PR and green CI; at staging check /robots.txt blocks preview, sitemap includes root only and form/dashboard/login emit noindex; review real OG preview later with a designed image.
 - **Status:** Code and CI build verified; browser/asset/production indexing still pending.
 
+## P3-01 — Product-aware README and safety onboarding
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/32
+- **Files:** `README.md` (replaces create-next-app boilerplate), `.github/workflows/readme-verify.yml`.
+- **Changes:** documented grounded capabilities, Next/Supabase/Gemini/Razorpay stack, Windows PowerShell setup, proposed env var names without keys, actual route list, database ownership discrepancy, draft PR dependencies and first-customer validation gates. Explicitly avoids falsely claiming payment, AI scoring or tenant security works.
+- **CI:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42520310425 **SUCCESS**; `npm ci`, `npx tsc --noEmit`, `npm run build` all passed with fake build-only env settings. No runtime customer tests.
+- **Vercel:** A matching head preview was not confirmed. CI production compilation is verified, but not browser QA.
+- **How to verify:** Review README draft and compare route/config/source statements with the current main branch. Check the linked CI run and confirm no secrets or unverified sales figures were added.
+- **Status:** Documentation and test pipeline complete; main unchanged.
+
