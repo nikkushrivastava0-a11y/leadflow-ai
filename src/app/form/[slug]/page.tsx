@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { isValidBusinessSlug, validatePublicLead } from "@/lib/public-leads";
 import { revalidatePath } from "next/cache";
 
 export default async function DynamicLeadForm(props: {
@@ -11,6 +12,7 @@ export default async function DynamicLeadForm(props: {
   
   // URL se slug nikal rahe hain (e.g., 'cafe-xyz')
   const slug = params.slug;
+  if (!isValidBusinessSlug(slug)) notFound();
 
   // Success UI
   if (searchParams?.success) {
@@ -27,19 +29,26 @@ export default async function DynamicLeadForm(props: {
 
   // An insert error should be visible to the visitor, never a silent no-op.
   // This route is public by design, and must have separate RLS and spam checks.
-  if (searchParams?.error === "save") {
+  if (searchParams?.error) {
+    const invalidDetails = searchParams.error === "invalid";
+    const unavailableBusiness = searchParams.error === "business";
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#a65d31] p-4">
         <section role="alert" className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
           <p className="text-xs font-semibold uppercase tracking-wider text-red-700">
-            Submission not saved
+            {invalidDetails ? "Check your details" : unavailableBusiness ? "Form unavailable" : "Submission not saved"}
           </p>
           <h1 className="mt-3 text-2xl font-bold text-slate-900">
-            We couldn&apos;t save your enquiry.
+            {invalidDetails
+              ? "Some details need correcting."
+              : unavailableBusiness
+                ? "This business cannot accept enquiries right now."
+                : "We couldn\'t save your enquiry."}
           </h1>
           <p className="mt-3 text-sm leading-6 text-slate-700">
-            Please try again in a moment. No confirmation was recorded.
-            If the problem continues, contact the business directly.
+            {invalidDetails
+              ? "Enter your full name, a valid email, and a phone number with 10–15 digits. No enquiry was saved."
+              : "No enquiry was saved. Please try again later or contact the business directly."}
           </p>
           <a
             href={`/form/${encodeURIComponent(slug)}`}
@@ -57,9 +66,25 @@ export default async function DynamicLeadForm(props: {
     "use server";
     const supabase = await createClient();
     
-    const name = formData.get("name") as string;
-    const email = formData.get("email") as string;
-    const phone = formData.get("phone") as string;
+    const validated = validatePublicLead(formData);
+    if (!validated.ok) {
+      redirect(`/form/${encodeURIComponent(slug)}?error=invalid`);
+    }
+
+    // Fail closed for unknown clients. The public SELECT policy for safe
+    // slug lookup must be verified with RLS before releasing this change.
+    const { data: registeredClient, error: clientError } = await supabase
+      .from("clients")
+      .select("slug")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (clientError || !registeredClient) {
+      console.error("Public form client lookup unavailable");
+      redirect(`/form/${encodeURIComponent(slug)}?error=business`);
+    }
+
+    const { name, email, phone } = validated.value;
 
     // Supabase mein data insert ho raha hai - client_slug ke sath!
     const { error } = await supabase.from("leads").insert([
