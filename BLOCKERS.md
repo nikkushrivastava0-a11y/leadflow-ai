@@ -39,3 +39,5 @@ Keep every PR in Draft; read-only investigation and source changes to a new bran
 - **B-13 / P3-03a — CRM stage guard verification pending:** Draft PR #35 was created from main and GitHub Actions run 42525286447 was queued, with Vercel pending at first check. Confirm green CI and actual staging database allowed statuses before merge. This guard does not replace tenant isolation or the pending PR #14 ownership fix.
 
 - **B-13 update:** PR #35 unit-test workflow run 42525286447 completed SUCCESS; staging schema alignment and functional tenant isolation remain pending.
+
+- **B-14 / P2-08a — Draft privacy FAQ not publishable:** PR #36 provides only proposed copy. Actual data controller/processor roles, lawful basis, consent recording, retention/deletion workflow, public policy URL and synthetic staging RLS remain unverified. Founder/legal review and browser accessibility QA are required before incorporating the text into the live form. Do not represent the draft as an implemented privacy policy.
