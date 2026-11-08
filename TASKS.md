@@ -15,7 +15,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - Progress lives on this tracking branch until reviewed and merged. Independent PRs do not silently depend on unmerged files.
 
 ## P0 — bugs, security, broken builds, deployment
-- [ ] **P0-01** Remove broken static `/form` route that assumes a nonexistent `slug`; redirect to a safe page.
+- [x] **P0-01** Remove broken static `/form` route that assumes a nonexistent `slug`; redirect to a safe page.
 - [ ] **P0-02** Require authenticated user and safe error response before Razorpay order creation.
 - [ ] **P0-03** Verify Razorpay payment signature, amount, order ownership and paid status server-side before enabling a Pro plan.
 - [ ] **P0-04** Replace misleading browser-only payment-success toast with verified server confirmation.
