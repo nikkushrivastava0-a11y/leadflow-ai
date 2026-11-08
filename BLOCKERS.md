@@ -18,9 +18,12 @@ Never silently skip required checks. Link each unresolved blocker to a task.
 - **B-07 / P0-07 — Anonymous client lookup RLS unverified:** PR #23 validates forms and fails closed if `clients.slug` cannot be read anonymously. Connected Supabase `leadflow-ai` project still reported INACTIVE on 2026-11-09. Staging owner/anonymous RLS test required before merging, or valid forms could fail.
 - **B-08 — Stacked/overlapping draft PRs:** #19 depends on #14; #23 depends on #17. #18 touches checkout/upgrade UI files also edited in #13/#15. Merge only after review/rebase and conflict resolution, never automatically.
 
+- **B-09 / P0-08 — Draft Redis guard requires founder-reviewed staging configuration:** PR #30 implements a fail-closed, atomic per-tenant/per-contact limiter and dedupe reservation using Upstash Redis REST, with mocked CI + preview build verified. Without approved `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` and `LEAD_GUARD_HASH_SECRET` on staging, merging it would block ALL legitimate public enquiry inserts. A production/staging provider account, its costs/data processing, and env setup require user approval. Do not enable service or provision resources without approval. True exactly-once deduplication also requires a separate unique constraint once Supabase schema is accessible. PR is stacked on #23 -> #17.
+
 ## NEEDS MY APPROVAL
 - Merge any draft PR to `main` or deploy to production.
 - Resume or change the existing production Supabase project and confirm a staging environment for safe RLS testing.
+- Approve shared Redis provider/cost and configure its three server-only credentials in staging before any P0-08 merge.
 - Update real Supabase schema/RLS or any real customer data.
 - Rotate/inspect credentials, provision paid hosting, make a purchase, or create payment/refund transactions.
 - Send customer-facing messages, contact real businesses, or enable automated outreach.
