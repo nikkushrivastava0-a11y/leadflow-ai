@@ -243,3 +243,12 @@
 - No Vercel head preview or manual UX test was confirmed. Functional CLI unit tests are synthetic; manual founder output review remains.
 - **Status:** Subtask P1-06a now marked done; full P1-06 still open for the in-app user-facing implementation. No messages sent.
 
+
+
+## 2026-11-09 — P3-03a CRM status validation
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/35 (branch `fix/p3-03a-lead-status-validation-20261109`, targets main; NOT merged).
+- **Files:** `src/lib/lead-status.ts`, `src/lib/actions.ts`, `tests/lead-status.test.mjs`, `.github/workflows/lead-status-tests.yml`.
+- **Change:** Allow only canonical `new/contacted/qualified/won/lost` stages, reject invalid IDs/stages before opening a database client. This is a narrow validation subtask; input validation and scoring parsing are still covered separately by unmerged PRs.
+- **Verification at logging:** GitHub Actions https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42525286447 **QUEUED** (not passed); Vercel check **PENDING**. No local test execution or browser/Supabase functional QA claimed.
+- **How to verify:** Check Actions test result; review allowed values against staging DB constraint; attempt invalid status with synthetic staging user and confirm no update; verify all five valid transitions and tenant isolation separately after Supabase RLS review.
+- **Status:** Draft PR created, CI started; full P3-03 and live functional verification remain open.
