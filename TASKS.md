@@ -26,7 +26,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [ ] **P0-08** Add genuine request throttling, spam resistance and duplicate handling to public enquiry path.
 - [x] **P0-09** Display public form submission failures instead of silently doing nothing.
 - [x] **P0-10** Remove hard-coded retired Gemini model; configure an actually available model with timeouts.
-- [ ] **P0-11** Model scoring: schema validation, prompt-injection isolation and truthful unavailable state.
+- [x] **P0-11** Model scoring: schema validation, prompt-injection isolation and truthful unavailable state.
 - [x] **P0-12** Add basic PR checks and verify builds and deployment preview gate.
 
 ## P1 — revenue-producing product features
