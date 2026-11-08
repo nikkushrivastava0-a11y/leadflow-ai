@@ -157,3 +157,14 @@
 - **How to verify:** Review prices and promised features against validated code, review taxes and policies before publishing or quoting any offer.
 - **Status:** PR created, build passed, founder approval pending.
 
+## P0-03a — Server-side Razorpay HMAC primitives (partial payment security)
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/27
+- **Files:** `src/lib/server/razorpay-signatures.ts`, `tests/razorpay-signatures.test.ts`, `package.json`, `.github/workflows/razorpay-signatures-tests.yml`.
+- **Change:** Check Razorpay checkout signature using a server-owned order ID plus payment ID, HMAC-SHA256 and timingSafeEqual; check webhook signature against the **raw** request bytes with a separate webhook secret. Validate IDs, signatures and maximum webhook size.
+- **Tests:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42518002622 **SUCCESS** using synthetic IDs and secret only; tampered IDs, wrong secret, altered webhook bytes and oversized body rejected in unit tests.
+- **Build:** Vercel preview `dpl_6Y84F6GnRnDupcVYziJ7f6U43she` **READY**, commit `10b0da2`, no build errors observed.
+- **Reference:** https://razorpay.com/docs/payments/payment-gateway/web-integration/standard/integration-steps/
+- **Not yet done:** Order-to-customer ownership mapping, payment capture/amount verification, idempotent webhook record processing, safe subscription activation, endpoint integration and auth/RLS tests. P0-03 remains **unchecked**. No real payments or live secrets used.
+- **How to verify:** Inspect draft PR and green CI; use ONLY synthetic signatures and nonproduction integration later, including replay/idempotency tests after schema restoration.
+- **Status:** HMAC core & unit tests done; full secure billing blocked by inactive Supabase and unverified schema.
+
