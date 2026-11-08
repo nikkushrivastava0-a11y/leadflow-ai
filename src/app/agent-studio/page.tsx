@@ -4,7 +4,8 @@ import { loadStudioTasks } from "@/lib/agent-studio";
 
 // Public read-only preview. Deliberately does not access customer tables,
 // founder credentials, messages, private KPIs, or payment details.
-export const dynamic = "force-dynamic";
+// Revalidate the public GitHub issue snapshot rather than querying per visitor.
+export const revalidate = 120;
 
 export const metadata: Metadata = {
   title: "Agent Operations | LeadFlow AI",
