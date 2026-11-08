@@ -188,3 +188,15 @@
 - **How to verify:** Review synthetic adversarial test in PR #29, check recorded CI run; after staging restoration, try synthetic lead scores and confirm logs/output never contain lead notes or contact details.
 - **Status:** Source + CI + preview verified; no production or real API access.
 
+## P0-08 — Distributed public-form abuse guard (continuation)
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/30
+- **Branch:** `security/p0-08-public-form-guard-20261109` stacked on PR #23 (which is stacked on #17). Main unchanged.
+- **Files:** `src/lib/server/public-lead-guard.ts`, `src/app/form/[slug]/page.tsx`, `tests/public-lead-guard.test.ts`, `.github/workflows/public-form-guard-tests.yml`, `docs/PUBLIC_FORM_ABUSE_GUARD.md`.
+- **Change:** Atomic Lua EVAL via Upstash Redis REST for 60 attempts/hour per business and 4/hour per contact; honeypot field; 90-second duplicate reservation, 10-minute completion after insert, compare-and-delete rollback for failed insert. HMAC-hashed Redis keys do not include raw names, email or phone.
+- **Fail-closed safety:** Missing/invalid credentials, provider outage and invalid protocol response reject inserts rather than silently bypass spam protections. **DO NOT MERGE until approved Redis provisioned** or real visitors will be unable to submit. No Redis/other paid service provisioned.
+- **CI:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42519572438 **SUCCESS**, synthetic tests cover honeypot, provider errors, key privacy, duplicate/rate statuses and reservation commit/release.
+- **Vercel:** `dpl_F1UCAuJVApFS7qQ6sXnqEjrEt32q` **READY**, head commit `b4a00bc`. Build compiled.
+- **Still needed:** actual atomic Redis integration + budget check, Supabase RLS checks, real multi-business form QA and DB-level idempotency unique constraint for exact-once guarantees. No live customer records or credentials accessed.
+- **How to verify:** inspect PR and CI; after staging Supabase + approved Redis exist, submit synthetic enquiries from two businesses, test concurrent duplicates, error retries, rate limits, and Redis-offline fail-closed behaviour before any merge.
+- **Status:** Draft implementation + unit tests + preview build complete; live service configuration and cross-system tests blocked.
+
