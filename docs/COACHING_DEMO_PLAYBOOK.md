@@ -61,9 +61,9 @@ If any step fails: acknowledge it, skip to the next verified feature, and log a 
 |---|---|---|---|---|
 | Demo Student A | a@example.test | 9999900000 | Interested in a class | new |
 | Demo Student B | b@example.test | 9999900001 | Needs schedule information | contacted |
-| Demo Student C | c@example.test | 9999900002 | Asked for callback | pending |
+| Demo Student C | c@example.test | 9999900002 | Asked for callback | new |
 
-Use only statuses **actually supported by the current app and database**. If `pending` is not a valid database status, replace it with supported `new` before importing.
+Use only statuses actually supported by the database; these are illustrative records, not real client leads.
 
 ## 90-second screen recording outline
 
