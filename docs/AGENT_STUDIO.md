@@ -4,10 +4,10 @@ A public, read-only founder operations board at \`/agent-studio\`.
 
 ## What it does
 
-- Shows six startup roles: CEO, CTO, Marketing, Sales, Product and Finance.
+- Shows six startup roles: CEO, CTO, Marketing, Sales, Product and Finance through an interactive CSS 3D work table plus accessible role selector.
 - Defines each role's responsibilities and intended output.
 - Reads public issues from \`nikkushrivastava0-a11y/leadflow-ai\` every ~2 minutes, extracting issues titled \`[ROLE] [P0|P1|P2] Task description\`.
-- Offers role, issue-status and text search filters.
+- Offers role, issue-status and text search filters. The selected 3D division synchronises with the assigned-work panel.
 - Reports GitHub issue open/closed counts and a completion percentage.
 - Labels real revenue as not connected; displays customer milestones as **targets**, not actuals.
 - Works without an active Supabase project and without GitHub/AI API credentials.
@@ -48,3 +48,7 @@ If GitHub is unavailable or rate-limited, the board displays an explicit warning
 - For AI agents: start with read-only agents that draft a plan/PR for approval; never permit unsupervised outreach or production writes.
 
 See the separate Hermes-compatible founder skill PR for reusable instructions; this dashboard does not depend on Hermes.
+
+## Visual design reference
+
+Read `docs/DESIGN_REFERENCE_NOTES.md` before changing the interface. It documents the two founder-shared November 8 videos (Mobbin, Watermelon UI, Impeccable, and the 15-point launch checklist), plus the founder's explicit 3D and non-template design requirement.
