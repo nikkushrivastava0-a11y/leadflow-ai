@@ -26,10 +26,10 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [x] **P0-09** Display public form submission failures instead of silently doing nothing.
 - [x] **P0-10** Remove hard-coded retired Gemini model; configure an actually available model with timeouts.
 - [ ] **P0-11** Model scoring: schema validation, prompt-injection isolation and truthful unavailable state.
-- [ ] **P0-12** Add basic PR checks and verify builds and deployment preview gate.
+- [x] **P0-12** Add basic PR checks and verify builds and deployment preview gate.
 
 ## P1 — revenue-producing product features
-- [ ] **P1-01** Inline editable CRM lead stage with success/error feedback.
+- [x] **P1-01** Inline editable CRM lead stage with success/error feedback.
 - [ ] **P1-02** Follow-up due dates, contact notes and workflow reminders.
 - [ ] **P1-03** Lead qualification pipeline consistent for public and manual leads.
 - [ ] **P1-04** Ethical local lead-finder research assistant using publicly available business information; no mass scraping or unsolicited auto-send.
