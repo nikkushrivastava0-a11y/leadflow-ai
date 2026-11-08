@@ -43,7 +43,7 @@ export default async function DynamicLeadForm(props: {
               ? "Some details need correcting."
               : unavailableBusiness
                 ? "This business cannot accept enquiries right now."
-                : "We couldn&apos;t save your enquiry."}
+                : "We couldn\'t save your enquiry."}
           </h1>
           <p className="mt-3 text-sm leading-6 text-slate-700">
             {invalidDetails
