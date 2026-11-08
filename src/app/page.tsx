@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Brain, Users, BarChart } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: { absolute: "LeadFlow AI | Enquiry Tracking for Local Businesses" },
+  alternates: { canonical: "/" },
+};
 
 export default function LandingPage() {
   return (
