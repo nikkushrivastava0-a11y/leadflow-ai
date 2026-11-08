@@ -59,6 +59,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [x] **P3-01** Actual README: setup, architecture, support model and known limits.
 - [x] **P3-02** Safe `.env.example` with variable names only, no credentials.
 - [ ] **P3-03** Unit tests for status validation, input validation and lead score parsing.
+- [x] **P3-03a** Canonical server-side CRM stage validation and synthetic unit tests (PR #35; P3-03 broader coverage remains open).
 - [ ] **P3-04** Integration tests for client data isolation and public form submission.
 - [ ] **P3-05** E2E tests for login, onboarding, lead add/edit, payment demo.
 - [x] **P3-06** Pricing and trial policy with clearly labelled proposed tiers.
