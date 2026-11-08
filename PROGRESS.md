@@ -79,3 +79,21 @@
 - **How to verify:** After restoring staging DB, create two synthetic client accounts; change statuses on each owner's lead, deliberately induce a failed save to confirm rollback, and verify another owner cannot mutate that lead.
 - **Status:** Draft PR + build passed, human acceptance and prerequisite RLS approval pending.
 
+## P0-07 — Public enquiry validation and client existence guard (continuation)
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/21
+- **Files:** `src/lib/public-lead-validation.ts`, `src/app/form/[slug]/page.tsx`, `tests/public-lead-validation.test.ts`, `package.json`, `.github/workflows/public-form-tests.yml`.
+- **Changes:** validates strict client slug format, string-only name/email/phone, lengths and email/phone syntax on server. Before database insert, queries `clients` for the submitted slug; invalid/unknown/write-error flows display explicit error. No storage or production changes.
+- **Unit tests:** GitHub Actions https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42516982158 **SUCCESS**, validation job and test step succeeded.
+- **Build:** Vercel preview `dpl_9QBfw7GjREcbEuky4bb4uy2Byrno` **READY**, preview route `/form/[slug]` built without errors at commit `043b773`.
+- **Functional QA NOT done:** Supabase leadflow-ai database remains `INACTIVE`, verified again during this continuation. Cannot test actual slug SELECT privileges or anonymous RLS INSERT policy. This PR may reject legitimate public forms if `clients` is not readable to anon; review secure tenant lookup/RPC before merge.
+- **Verify:** In nonproduction project, test valid slug -> lead created, invalid slug -> no insert, invalid name/email/phone -> error, unavailable DB -> visible error; then check DB policies for every business.
+- **Status:** Draft code, build and unit tests completed; live integration blocked (B-01/B-07). Not safe to merge without RLS review.
+
+## P0-12 — General PR quality gate (completed on existing draft PR)
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/18
+- **Files:** `.github/workflows/quality.yml` and minimal baseline ESLint repairs in the PR.
+- **GitHub Actions:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42516678879 **SUCCESS**; `npm ci`, `npx tsc --noEmit`, `npm run lint`, optional unit tests, and `npm run build` all completed green under Node 24.
+- **Regression caution:** Independent fix PRs were branched from unchanged `main`; not all get the new checks until quality PR is reviewed/merged. No changes to production.
+- **Verify:** Inspect GitHub Actions job step results for run 42516678879; review PR #18 before merging.
+- **Status:** CI proposal and checks verified, still draft.
+
