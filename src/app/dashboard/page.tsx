@@ -6,6 +6,7 @@ import { AddLeadDialog } from "@/components/add-lead-dialog";
 import { LeadsTable } from "@/components/leads-table";
 import { UpgradeButton } from "@/components/upgrade-button";
 import { Lead } from "@/lib/types";
+import { FormShareLink } from "@/components/form-share-link";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -68,6 +69,7 @@ export default async function DashboardPage() {
           <code className="bg-slate-100 px-4 py-3 rounded font-mono text-indigo-600 text-sm break-all">
             {formLink}
           </code>
+          <FormShareLink url={formLink} />
         </div>
 
         {/* Stats Cards */}
