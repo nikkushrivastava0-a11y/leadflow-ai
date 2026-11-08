@@ -254,3 +254,10 @@
 - **Status:** Draft PR created, CI started; full P3-03 and live functional verification remain open.
 
 - **CI follow-up:** GitHub Actions run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42525286447 completed **SUCCESS** (workflow conclusion). No functional staging or browser QA performed; Vercel preview build not confirmed READY.
+
+## 2026-11-09 — P2-08a privacy and FAQ copy review preparation
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/36 (branch `docs/p2-08a-form-privacy-faq-20261109`, base main; commit `3b6f9e1`).
+- **File:** `docs/FORM_PRIVACY_FAQ_DRAFT.md` — proposed form notice, consent/retention considerations, realistic FAQ and explicit staging/legal/UX acceptance gates. Clearly marked NOT PUBLISHED. No real contact addresses, fabricated testimonials or security guarantees.
+- **Verification:** GitHub branch, commit and draft PR confirmed; content manually reviewed. No local runtime test, CI result, Vercel preview result, or browser/functional QA verified. Documentation-only change. Parent P2-08 remains open.
+- **How to verify:** Review PR #36; compare notice with actual approved data-flow and policy, check staging two-tenant RLS, obtain founder/legal approval, then implement and browser-test UI separately. Do not publish placeholders.
+- **Safety:** No main merge, production deployment, customer records, payments, credentials or outreach touched.
