@@ -125,3 +125,35 @@
 - **How to verify:** With staging DB active and public-safe RLS, submit valid synthetic enquiry and ensure it appears for correct owner; unknown slug, invalid email and phone must fail without writing records.
 - **Status:** Source, unit CI and preview build passed; **functional launch approval blocked by actual Supabase RLS**.
 
+## Continuation — deduplicated P0-07 implementation
+- A second P0-07 implementation was produced while another scheduled run was editing the same backlog. Our draft PR #21 had green GitHub unit tests and a READY Vercel preview, but was closed **unmerged** as a duplicate.
+- **Authoritative P0-07 draft:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/23, stacked on P0-09 draft PR #17. Unit CI https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42517199903 SUCCESS; preview `dpl_H3Y32qB8wC1VAxhzLZi4U4EFupy4` READY.
+- **Review gate:** The Supabase database remains inactive. Anonymous slug lookup / RLS, two-tenant isolation and real form submissions have NOT been tested. PR #23 cannot be considered production-ready until those tests pass. Review that PR and #17 together, resolving future main merge dependencies.
+
+## P3-08 — Coaching-centre discovery/demo and pilot conversion
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/24
+- **File:** `docs/COACHING_DEMO_PLAYBOOK.md`
+- **Work:** six targeted discovery questions, seven-minute real-feature demo, 90-second genuine recording script, synthetic test data, honest objection replies, pilot KPI definitions and sales-to-product-to-CTO handoff. No fake testimonials, verified revenue claims or unsupervised outreach.
+- **Vercel:** `dpl_JAYRepQBQqNCxDtuP6PMRRQsKR1V` READY at `874ef33`.
+- **Tests:** Documentation-only; no live product/demo/customer testing and no message delivery.
+- **How to verify:** Review the draft PR content for unsupported claims, use a staging system with synthetic leads, validate dashboard flow and record the demo only after browser QA.
+- **Status:** PR created, build passed, founder review pending.
+
+## P3-09 — Founder CFO weekly cost/revenue scorecard
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/25
+- **File:** `docs/FOUNDER_REVENUE_SCORECARD.md`
+- **Work:** eight-week blank tracking template for contacts, replies, demos, pilots, verified paying customers, MRR, cash collected, actual expenses, unit contribution and founder hours. Unknown metrics are `N/A` rather than fabricated zeroes.
+- **Vercel:** `dpl_fjaJp2NQuE8zizkcmzdgjpLpbvvF` READY at `46a80ac`.
+- **Tests:** Documentation-only; no financial accounts accessed or real numbers asserted.
+- **How to verify:** Inspect PR and fill a copy in an approved private location, using actual receipts; never commit customer or financial secrets into this public repo.
+- **Status:** PR created, build passed, founder review pending.
+
+## P3-06 — Ethical pricing and pilot policy
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/26
+- **File:** `docs/FOUNDER_PRICING_TRIAL_POLICY.md`
+- **Work:** proposed ₹499/₹999/₹1,999 offers, a 14-day new pilot hypothesis, honour existing one-month commitments, explicit limits, billing/data/consent gates, no guaranteed admissions, trial-to-paid decision script.
+- **Vercel:** `dpl_Ga9oxxP73qwtuNHKXVhVZ3NaK99h` READY at `ad892c4`.
+- **Tests:** Document-only; no billing, legal/tax verification or real client transaction tested.
+- **How to verify:** Review prices and promised features against validated code, review taxes and policies before publishing or quoting any offer.
+- **Status:** PR created, build passed, founder approval pending.
+
