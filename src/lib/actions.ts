@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { scoreLead } from "@/lib/gemini";
+import { isLeadStatus } from "@/lib/lead-status";
 
 export async function getLeads() {
   const supabase = await createClient();
@@ -94,6 +95,9 @@ export async function deleteLead(id: string) {
 }
 
 export async function updateLeadStatus(id: string, status: string) {
+  if (!isLeadStatus(status)) return { error: "Invalid lead status" };
+  if (typeof id !== "string" || !id.trim()) return { error: "Invalid lead ID" };
+
   const supabase = await createClient();
   const {
     data: { user },
