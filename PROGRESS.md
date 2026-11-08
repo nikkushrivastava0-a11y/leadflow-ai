@@ -200,3 +200,14 @@
 - **How to verify:** inspect PR and CI; after staging Supabase + approved Redis exist, submit synthetic enquiries from two businesses, test concurrent duplicates, error retries, rate limits, and Redis-offline fail-closed behaviour before any merge.
 - **Status:** Draft implementation + unit tests + preview build complete; live service configuration and cross-system tests blocked.
 
+## P2-04a — Honest metadata, marketing-only sitemap and private page noindex
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/31
+- **Branch:** `seo/p2-04-indexable-marketing-only-20261109` from main.
+- **Files:** root `src/app/layout.tsx`, homepage `src/app/page.tsx`, `src/lib/site-origin.ts`, login/dashboard/form nested metadata layouts, `src/app/robots.ts`, `src/app/sitemap.ts`, tests/CI, `docs/SEO_METADATA_ROLLOUT.md`, and `tsconfig.json`.
+- **Work:** replaces Create Next App title/description with honest in-development copy; adds text-only OpenGraph/Twitter descriptions, noindex on login/dashboard/forms, marketing-homepage-only sitemap and preview robots disallow. No visual layout changes.
+- **Tests:** First full CI failed on TS5097 for explicit `.ts` import in Node native tests; fixed with `allowImportingTsExtensions` under noEmit. Final GitHub Actions run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42520269177 **SUCCESS**: canonical unit test, `npm ci`, `npx tsc --noEmit`, `npm run build` all passed with synthetic env placeholders.
+- **Vercel:** Preview registration for latest commit has not been confirmed; do NOT claim a browser-tested latest preview. Full CI production compile independently passed.
+- **Not done:** Founder-approved social preview image, Search Console, marketing claims audit, actual crawler/HTTP inspection and final custom domain; parent P2-04 remains unchecked.
+- **How to verify:** Review PR and green CI; at staging check /robots.txt blocks preview, sitemap includes root only and form/dashboard/login emit noindex; review real OG preview later with a designed image.
+- **Status:** Code and CI build verified; browser/asset/production indexing still pending.
+
