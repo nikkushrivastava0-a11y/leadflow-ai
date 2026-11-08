@@ -1,0 +1,25 @@
+name: Public form abuse guard tests
+
+on:
+  pull_request:
+    branches: [main, fix/p0-07-public-lead-validation-20261109]
+  push:
+    branches: [security/p0-08-public-form-guard-20261109]
+
+permissions:
+  contents: read
+
+jobs:
+  abuse-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+      - name: Test shared counter, duplicate reservation and privacy
+        run: node --experimental-strip-types --test tests/public-lead-guard.test.ts

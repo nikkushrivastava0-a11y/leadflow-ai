@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import { isValidBusinessSlug, validatePublicLead } from "@/lib/public-leads";
+import { reservePublicLeadSubmission } from "@/lib/server/public-lead-guard";
 import { revalidatePath } from "next/cache";
 
 export default async function DynamicLeadForm(props: {
@@ -32,23 +33,36 @@ export default async function DynamicLeadForm(props: {
   if (searchParams?.error) {
     const invalidDetails = searchParams.error === "invalid";
     const unavailableBusiness = searchParams.error === "business";
+    const slowDown = searchParams.error === "busy";
+    const duplicate = searchParams.error === "duplicate";
+    const guardUnavailable = searchParams.error === "guard";
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#a65d31] p-4">
         <section role="alert" className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
           <p className="text-xs font-semibold uppercase tracking-wider text-red-700">
-            {invalidDetails ? "Check your details" : unavailableBusiness ? "Form unavailable" : "Submission not saved"}
+            {invalidDetails ? "Check your details" : unavailableBusiness ? "Form unavailable" : slowDown ? "Too many requests" : duplicate ? "Recent similar enquiry" : guardUnavailable ? "Temporarily unavailable" : "Submission not saved"}
           </p>
           <h1 className="mt-3 text-2xl font-bold text-slate-900">
             {invalidDetails
               ? "Some details need correcting."
               : unavailableBusiness
                 ? "This business cannot accept enquiries right now."
-                : "We couldn\'t save your enquiry."}
+                : slowDown
+                  ? "Please try again later."
+                  : duplicate
+                    ? "A similar enquiry was attempted recently."
+                    : guardUnavailable
+                      ? "The enquiry form is temporarily unavailable."
+                      : "We couldn't save your enquiry."}
           </h1>
           <p className="mt-3 text-sm leading-6 text-slate-700">
             {invalidDetails
               ? "Enter your full name, a valid email, and a phone number with 10–15 digits. No enquiry was saved."
-              : "No enquiry was saved. Please try again later or contact the business directly."}
+              : slowDown
+                ? "Too many enquiries were attempted in a short period. Wait before submitting again."
+                : duplicate
+                  ? "A similar enquiry was attempted recently. Check with the business before submitting again."
+                  : "No enquiry was saved or confirmed. Please try again later or contact the business directly."}
           </p>
           <a
             href={`/form/${encodeURIComponent(slug)}`}
@@ -86,27 +100,58 @@ export default async function DynamicLeadForm(props: {
 
     const { name, email, phone } = validated.value;
 
-    // Supabase mein data insert ho raha hai - client_slug ke sath!
-    const { error } = await supabase.from("leads").insert([
-      { 
-        name, 
-        email, 
-        phone, 
-        source: "Website Form",
-        status: "new", 
-        score: 50,
-        client_slug: slug // <--- Ye tera data sahi client ke dashboard mein bhejega
-      }
-    ]);
+    const reservation = await reservePublicLeadSubmission({
+      slug,
+      name,
+      email,
+      phone,
+      honeypot: formData.get("company_website"),
+    });
 
-    if (error) {
-      console.error("Error saving lead:", error);
-      redirect(`/form/${encodeURIComponent(slug)}?error=save`);
+    if (!reservation.allowed) {
+      const errorState =
+        reservation.reason === "rate_limited" ? "busy" :
+        reservation.reason === "duplicate" ? "duplicate" :
+        reservation.reason === "spam" ? "invalid" : "guard";
+      redirect("/form/" + encodeURIComponent(slug) + "?error=" + errorState);
     }
-    
+
+    // The reservation prevents rapid duplicates during a DB write.
+    // Without a unique DB constraint, this is NOT an exactly-once guarantee.
+    let insertFailed = false;
+    try {
+      const { error } = await supabase.from("leads").insert([{
+        name,
+        email,
+        phone,
+        source: "Website Form",
+        status: "new",
+        score: 50,
+        client_slug: slug,
+      }]);
+      if (error) {
+        console.error("Public enquiry insert failed:", error.code || "unknown");
+        insertFailed = true;
+      }
+    } catch {
+      console.error("Public enquiry insert threw an error");
+      insertFailed = true;
+    }
+
+    if (insertFailed) {
+      await reservation.release();
+      redirect("/form/" + encodeURIComponent(slug) + "?error=save");
+    }
+
+    const committed = await reservation.complete();
+    if (!committed) {
+      // A durable DB insert already succeeded. Do not pretend it failed.
+      console.warn("Public lead saved but duplicate guard confirmation unavailable");
+    }
+
     // Dashboard refresh karo aur success page par bhejo
     revalidatePath("/dashboard");
-    redirect(`/form/${slug}?success=true`);
+    redirect(`/form/${encodeURIComponent(slug)}?success=true`);
   }
 
   return (
@@ -119,6 +164,16 @@ export default async function DynamicLeadForm(props: {
         </h1>
         
         <form action={submitLead} className="flex flex-col gap-4">
+          <div className="absolute -left-[9999px] h-px w-px overflow-hidden" aria-hidden="true">
+            <label htmlFor="company_website">Do not fill out this field</label>
+            <input
+              id="company_website"
+              name="company_website"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+            />
+          </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-[#a65d31]">Full Name</label>
             <input required type="text" name="name" className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="John Doe" />
