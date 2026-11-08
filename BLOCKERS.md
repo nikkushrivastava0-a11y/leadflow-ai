@@ -35,3 +35,5 @@ Never silently skip required checks. Link each unresolved blocker to a task.
 
 ## Safe default
 Keep every PR in Draft; read-only investigation and source changes to a new branch are allowed under the founder's instructions. Log any uncertainty in PROGRESS.md and move to another independent task if blocked.
+
+- **B-13 / P3-03a — CRM stage guard verification pending:** Draft PR #35 was created from main and GitHub Actions run 42525286447 was queued, with Vercel pending at first check. Confirm green CI and actual staging database allowed statuses before merge. This guard does not replace tenant isolation or the pending PR #14 ownership fix.
