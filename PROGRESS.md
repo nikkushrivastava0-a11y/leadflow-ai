@@ -61,3 +61,21 @@
 - **How to verify:** Inspect PR and Actions run; in a configured nonprod environment submit synthetic lead, verify AI score; disable key and verify clearly labelled rule-based fallback without blocking lead capture.
 - **Status:** Code, CI unit tests and preview build passed. Live model and policy verification pending.
 
+## P0-12 — Enforced quality gates
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/18
+- **Sources:** `.github/workflows/quality.yml`, plus minimal existing-lint fixes in `src/app/api/checkout/route.ts`, `src/app/dashboard/page.tsx`, and `src/components/upgrade-button.tsx`.
+- **Initial CI:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42516442923 FAILED at lint due to 5 pre-existing errors. Recorded in B-06; source fixes committed without suppressing checks.
+- **Final CI:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42516678879 SUCCESS, verified jobs: npm ci, typecheck, lint, optional tests and production compilation all SUCCESS.
+- **Vercel:** latest preview `dpl_B2h8qB3mM7PuZB1hVwc878k3dqrL` READY for commit `d242928`.
+- **How to verify:** Open final Actions run; ensure all quality steps green. Note dummy CI environment values verify compilation only; no real DB/payment test.
+- **Status:** Ready as draft PR; may conflict with P0-02 and P0-04 in files also edited. Rebase/resolve before merge.
+
+## P1-01 — CRM stage editing (stacked on ownership fix)
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/19
+- **Dependency:** PR #14 `fix/p0-06-tenant-consistency-20261109`; PR #19 targets that branch, not main.
+- **Source:** `src/components/leads-table.tsx` — role-specific lead status selector, save progress, rollback on failure, toast feedback, server refresh.
+- **Build:** Vercel preview `dpl_BmYEzpYuhySUzNwGQF7H7vJdrTb3` at commit `745a767` READY.
+- **Tests:** Browser status change and cross-tenant RLS acceptance NOT run because Supabase remains inaccessible. No real data altered.
+- **How to verify:** After restoring staging DB, create two synthetic client accounts; change statuses on each owner's lead, deliberately induce a failed save to confirm rollback, and verify another owner cannot mutate that lead.
+- **Status:** Draft PR + build passed, human acceptance and prerequisite RLS approval pending.
+
