@@ -177,3 +177,14 @@
 - **How to verify:** Review the 13 source entries, independently confirm each centre's active business contact page, then select five for permission-respecting founder discovery conversations. Any messages require founder approval.
 - **Status:** Research subtask complete; P1-04 general lead-finder product remains unchecked.
 
+## P0-11 — Privacy-safe lead scoring and prompt injection controls (continuation)
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/29
+- **Branch:** `security/p0-11-private-scoring-signals-20261109`, stacked on P0-10 PR #16 (not main).
+- **Files:** `src/lib/lead-scoring-signals.ts`, `src/lib/gemini.ts`, `tests/gemini-privacy.test.ts`, `tsconfig.json`, `.github/workflows/scoring-tests.yml`.
+- **Changes:** Free-text notes and contact identifiers never enter the model request. A fixed list of local boolean intent signals + allowlisted source category is sent instead. Gemini `generateContent` requests a schema, validates output, preserves score 0, and rejects unsafe URLs/markup in reasons; fallback stays labelled as rule-based.
+- **Verification:** initial CI failed because Node's native TypeScript runner needed explicit .ts module import; fixed. Second failure was a test assertion on escaped JSON; fixed. Final GitHub Actions run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42519166280 **SUCCESS**, `Unit tests (no external API calls)` passed.
+- **Build:** Vercel preview `dpl_763LtjgLcGji3wvRWQf3U3ShitUe` at commit `4bd846a` **READY**, build logs completed without errors.
+- **Still needed:** live account/model entitlement and privacy/consent review, real customer data handling checks, acceptance testing with Supabase, review of stacked dependency PR #16.
+- **How to verify:** Review synthetic adversarial test in PR #29, check recorded CI run; after staging restoration, try synthetic lead scores and confirm logs/output never contain lead notes or contact details.
+- **Status:** Source + CI + preview verified; no production or real API access.
+
