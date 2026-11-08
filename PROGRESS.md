@@ -220,3 +220,10 @@
 - **How to verify:** Review README draft and compare route/config/source statements with the current main branch. Check the linked CI run and confirm no secrets or unverified sales figures were added.
 - **Status:** Documentation and test pipeline complete; main unchanged.
 
+
+## P1-10 — Fictional coaching-centre demo dataset (2026-11-09)
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/34 (base main; branch docs/p1-10-synthetic-coaching-demo-20261109; commit a13a4ce).
+- **File:** docs/SYNTHETIC_COACHING_DEMO.md. Five explicitly fictional lead records, reserved example.com emails, non-dialable placeholder phones, realistic enquiry notes, a five-minute staging walkthrough and explicit RLS/form acceptance checks.
+- **Verification:** GitHub file creation and draft PR creation succeeded; source/document content reviewed. No local test or browser run; no CI/Vercel build outcome verified. Documentation-only change; build READY is not asserted. Functional QA remains blocked by inactive Supabase and RLS unknowns.
+- **How to verify:** Review the PR text, ensure names/metrics are fictional and no contactable addresses are used; then with approved staging tenant validate form submission, dashboard visibility, status editing and two-tenant RLS as specified. Do not run against real customers.
+- **Status:** Draft PR created; documentation task complete, live demonstration unverified. No production, payment or outreach actions.
