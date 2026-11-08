@@ -26,3 +26,11 @@
 - **How to verify:** With preview, POST without Supabase session must return 401; with valid session but no configured keys must return 503. The latter should be tested in a nonproduction environment.
 - **Status:** Guard implementation committed and preview build passed. **P0-03 payment verification, ownership persistence and rate limiting remain required before accepting money.**
 
+## P0-06 — Business ownership alignment
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/14
+- **Source:** `src/lib/actions.ts` — derive authenticated business slug consistently with dashboard; use `client_slug` for listing and mutating public/manual leads; include `client_slug` in manual inserts; validate status and check affected rows.
+- **Build:** Vercel preview `dpl_Dz94uVTZFhNvoZhKzUhXp9nkpNDa` for commit `5a75638` READY; build log no errors.
+- **Tests:** No two-tenant Supabase integration tests possible: project inactive and live RLS/schema unavailable. **Do not merge to production until RLS has been independently verified;** UI/server filters alone are not a security boundary.
+- **How to verify:** With test owner A, submit manual+public leads; both must appear. Owner B must not view, update, delete or insert leads for A through client SDK or server action.
+- **Status:** Code-only fix and build complete, DB acceptance criteria remain blocked under P0-05.
+
