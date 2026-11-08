@@ -10,7 +10,10 @@ Never silently skip required checks. Link each unresolved blocker to a task.
 - **B-04 — Real browser visual/interaction QA:** preview build statuses do not prove the page was visually tested or that data-backed flows work.
 - **B-05 — Testing access:** local dependencies/test runner may be unavailable. For each task use Vercel preview build where available and record what was actually verified.
 
-- **B-06 / P0-12 — Existing baseline lint failures:** New CI run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42516442923 shows TypeScript check SUCCESS but ESLint fails with 5 errors: redundant `@ts-ignore` checkout import (1), two unescaped apostrophes in dashboard JSX (2), and two explicit `any` uses in upgrade button (2). Build stage skipped because lint failed. Fix on the CI draft branch and re-run before marking P0-12 done.
+- **B-06 / P0-12 — RESOLVED IN DRAFT PR #18:** New CI run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42516442923 shows TypeScript check SUCCESS but ESLint fails with 5 errors: redundant `@ts-ignore` checkout import (1), two unescaped apostrophes in dashboard JSX (2), and two explicit `any` uses in upgrade button (2). Build stage skipped because lint failed. Fixed on the CI draft branch; run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42516678879 passed lint, typecheck and build. Still draft, so main has the old lint issues.
+
+- **B-07 / P0-07 — Client lookup/RLS not verified:** The new draft public form verifies a slug via `clients` SELECT before insertion. Supabase leadflow-ai remains INACTIVE (re-checked 2026-11-09); cannot prove that anonymous sessions can read valid client slugs or insert only for their assigned tenant. Before merge, test on a nonproduction restored DB and consider a narrow, safe RPC for public slug validation rather than broad SELECT rights.
+- **B-08 / P0-08 — Distributed rate limiting unavailable without storage:** In-memory request counters are unsafe in serverless deployments. A durable shared rate limit provider or database-backed mechanism must be designed, tested and reviewed. No CAPTCHA keys or paid services will be provisioned without approval.
 
 ## NEEDS MY APPROVAL
 - Merge any draft PR to `main` or deploy to production.
