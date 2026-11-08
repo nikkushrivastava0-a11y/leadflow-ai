@@ -18,6 +18,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [x] **P0-01** Remove broken static `/form` route that assumes a nonexistent `slug`; redirect to a safe page.
 - [x] **P0-02** Require authenticated user and safe error response before Razorpay order creation.
 - [ ] **P0-03** Verify Razorpay payment signature, amount, order ownership and paid status server-side before enabling a Pro plan.
+- [x] **P0-03a** Implement and test checkout/webhook HMAC authenticity primitives (partial; P0-03 remains blocked).
 - [x] **P0-04** Replace misleading browser-only payment-success toast with verified server confirmation.
 - [ ] **P0-05** Restore connected Supabase availability and inspect actual `leads`/`clients` schema, RLS and privileges.
 - [x] **P0-06** Resolve mismatch between manual `user_id` lead writes and dashboard `client_slug` queries.
