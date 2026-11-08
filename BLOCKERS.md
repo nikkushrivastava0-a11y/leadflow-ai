@@ -15,6 +15,9 @@ Never silently skip required checks. Link each unresolved blocker to a task.
 - **B-07 / P0-07 — Client lookup/RLS not verified:** The new draft public form verifies a slug via `clients` SELECT before insertion. Supabase leadflow-ai remains INACTIVE (re-checked 2026-11-09); cannot prove that anonymous sessions can read valid client slugs or insert only for their assigned tenant. Before merge, test on a nonproduction restored DB and consider a narrow, safe RPC for public slug validation rather than broad SELECT rights.
 - **B-08 / P0-08 — Distributed rate limiting unavailable without storage:** In-memory request counters are unsafe in serverless deployments. A durable shared rate limit provider or database-backed mechanism must be designed, tested and reviewed. No CAPTCHA keys or paid services will be provisioned without approval.
 
+- **B-07 / P0-07 — Anonymous client lookup RLS unverified:** PR #23 validates forms and fails closed if `clients.slug` cannot be read anonymously. Connected Supabase `leadflow-ai` project still reported INACTIVE on 2026-11-09. Staging owner/anonymous RLS test required before merging, or valid forms could fail.
+- **B-08 — Stacked/overlapping draft PRs:** #19 depends on #14; #23 depends on #17. #18 touches checkout/upgrade UI files also edited in #13/#15. Merge only after review/rebase and conflict resolution, never automatically.
+
 ## NEEDS MY APPROVAL
 - Merge any draft PR to `main` or deploy to production.
 - Update real Supabase schema/RLS or any real customer data.
