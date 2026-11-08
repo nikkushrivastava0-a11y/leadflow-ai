@@ -30,7 +30,7 @@ export function UpgradeButton() {
         name: "LeadFlow AI",
         description: "Pro Plan Upgrade",
         order_id: data.orderId,
-        handler: function (response: any) {
+        handler: function (response: { razorpay_payment_id: string }) {
           // Payment Success hone pe ye chalega
           toast.success("Payment Successful! Welcome to Pro. 🎉");
           console.log("Payment ID:", response.razorpay_payment_id);
@@ -41,7 +41,15 @@ export function UpgradeButton() {
       };
 
       // 3. Popup open karo
-      const rzp = new (window as any).Razorpay(options);
+      const RazorpayCheckout = (
+        window as Window & {
+          Razorpay?: new (config: typeof options) => { open(): void };
+        }
+      ).Razorpay;
+      if (!RazorpayCheckout) {
+        throw new Error("Razorpay checkout script unavailable");
+      }
+      const rzp = new RazorpayCheckout(options);
       rzp.open();
     } catch (error) {
       console.error("Payment error:", error);

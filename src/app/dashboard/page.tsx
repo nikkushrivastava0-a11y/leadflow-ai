@@ -26,7 +26,7 @@ export default async function DashboardPage() {
 
   if (clientError || !client?.slug) {
     console.error("Client not found:", clientError);
-    return <div className="p-8 text-center text-red-600">Client profile not found. Make sure your email is in the 'clients' table.</div>;
+    return <div className="p-8 text-center text-red-600">Client profile not found. Make sure your email is in the &apos;clients&apos; table.</div>;
   }
 
   // ==================== SECURITY FIX: FILTER LEADS BY SLUG ====================
