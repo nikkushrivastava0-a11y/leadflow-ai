@@ -57,10 +57,10 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [ ] **P3-03** Unit tests for status validation, input validation and lead score parsing.
 - [ ] **P3-04** Integration tests for client data isolation and public form submission.
 - [ ] **P3-05** E2E tests for login, onboarding, lead add/edit, payment demo.
-- [ ] **P3-06** Pricing and trial policy with clearly labelled proposed tiers.
+- [x] **P3-06** Pricing and trial policy with clearly labelled proposed tiers.
 - [x] **P3-07** Founder-reviewed LinkedIn, email and WhatsApp outreach drafts; never send automatically.
-- [ ] **P3-08** Demo playbook, discovery questionnaire, objections and follow-up flow.
-- [ ] **P3-09** Weekly cash / MRR / costs scorecard based on verified figures.
+- [x] **P3-08** Demo playbook, discovery questionnaire, objections and follow-up flow.
+- [x] **P3-09** Weekly cash / MRR / costs scorecard based on verified figures.
 - [ ] **P3-10** Dependency audit, remove unused code and verify licence/commercial hosting.
 
 ## Completion rule
