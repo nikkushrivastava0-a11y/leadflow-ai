@@ -40,7 +40,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [ ] **P1-07** CRM search, filters, sorting and pagination.
 - [ ] **P1-08** QR/link-sharing for an individual business enquiry form.
 - [ ] **P1-09** Safe UPI/checkout flow and invoicing plan with reconciled paid activation.
-- [ ] **P1-10** Synthetic, believable coaching-centre sales demo (no fake proof).
+- [x] **P1-10** Synthetic, believable coaching-centre sales demo (no fake proof).
 - [ ] **P1-11** Verified owner onboarding and automatic client profile provisioning.
 
 ## P2 — design quality, SEO, mobile, observability
