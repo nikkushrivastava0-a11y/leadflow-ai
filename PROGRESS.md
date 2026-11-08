@@ -18,3 +18,11 @@
 - **How to verify:** Open the PR preview, visit `/form` and confirm homepage redirect; then visit a valid `/form/{clientSlug}` after DB restoration.
 - **Status:** PR prepared + build passed; live route QA pending (does not block next independent fix).
 
+## P0-02 — Authenticated checkout initiation
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/13
+- **Source:** `src/app/api/checkout/route.ts` — guard Razorpay order creation behind `auth.getUser()`; missing payment credentials produce 503 instead of attempting SDK init; no-store success response.
+- **Build:** Vercel preview `dpl_7xwR4fHHYBzVtXTxkRnN7JDgsPyZ` for commit `e6192a4` is READY, route `/api/checkout` compiled, build log contains no errors.
+- **Tests:** No live authenticated/unauthenticated API request tests performed. API keys and client sessions were not accessed. No real payment started.
+- **How to verify:** With preview, POST without Supabase session must return 401; with valid session but no configured keys must return 503. The latter should be tested in a nonproduction environment.
+- **Status:** Guard implementation committed and preview build passed. **P0-03 payment verification, ownership persistence and rate limiting remain required before accepting money.**
+
