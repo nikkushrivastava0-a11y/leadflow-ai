@@ -42,3 +42,11 @@
 - **How to verify:** Inspect button in preview, confirm disabled; confirm no checkout script or request is triggered and no false success toast appears.
 - **Status:** Code/preview build complete. Payment feature intentionally inactive until P0-03 server verification and approvals.
 
+## P0-09 — Public enquiry failure feedback
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/17
+- **Source:** `src/app/form/[slug]/page.tsx` — failed inserts redirect to an explicit failure screen with retry rather than silently returning; original success path still uses redirect.
+- **Build:** Vercel preview `dpl_JDxgoShsNzBEyViwXJVgnB9eZN1M` for commit `c39fd86` READY, build log finished successfully.
+- **Tests:** Browser reproduction of a failed Supabase write remains pending. No real customer records or database changes involved.
+- **How to verify:** In a nonproduction test with failing Supabase insert, submit form; page must render `?error=save` with alert and retry link. Successful test submission should redirect to `?success=true`.
+- **Status:** Code + preview build complete; failure-path QA pending.
+
