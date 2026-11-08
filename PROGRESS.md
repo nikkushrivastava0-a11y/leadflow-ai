@@ -34,3 +34,11 @@
 - **How to verify:** With test owner A, submit manual+public leads; both must appear. Owner B must not view, update, delete or insert leads for A through client SDK or server action.
 - **Status:** Code-only fix and build complete, DB acceptance criteria remain blocked under P0-05.
 
+## P0-04 — Remove unverified payment-success experience
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/15
+- **Source:** `src/components/upgrade-button.tsx` — replace unverified payment-success handler and live Razorpay script with disabled, clearly labelled upgrade CTA while backend verification is incomplete.
+- **Build:** Vercel preview `dpl_GapaQJMoe6vkrP1PHBjmsw28EeiU` at commit `3f7d870` READY; no build errors in log.
+- **Tests:** Manual browser click/disabled-state test pending. Source code cannot initiate payment from this button. `/api/checkout` requires its own P0-02 guard; this PR alone is NOT a complete payments fix.
+- **How to verify:** Inspect button in preview, confirm disabled; confirm no checkout script or request is triggered and no false success toast appears.
+- **Status:** Code/preview build complete. Payment feature intentionally inactive until P0-03 server verification and approvals.
+
