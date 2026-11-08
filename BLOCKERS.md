@@ -20,6 +20,10 @@ Never silently skip required checks. Link each unresolved blocker to a task.
 
 - **B-09 / P0-08 — Draft Redis guard requires founder-reviewed staging configuration:** PR #30 implements a fail-closed, atomic per-tenant/per-contact limiter and dedupe reservation using Upstash Redis REST, with mocked CI + preview build verified. Without approved `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` and `LEAD_GUARD_HASH_SECRET` on staging, merging it would block ALL legitimate public enquiry inserts. A production/staging provider account, its costs/data processing, and env setup require user approval. Do not enable service or provision resources without approval. True exactly-once deduplication also requires a separate unique constraint once Supabase schema is accessible. PR is stacked on #23 -> #17.
 
+- **B-10 / P0-11 — AI scoring merge dependency and live-model verification:** Privacy PR #29 stacks on model migration PR #16. Synthetic CI, typecheck and Vercel build passed, but no actual Gemini API call or real personal-data consent testing was performed. Do not claim autonomous scoring works with a configured user account until a model entitlement and safe integration test are verified.
+- **B-11 / P2-04a — Production metadata / social preview verification:** SEO PR #31 passed its GitHub CI build, but a current Vercel head preview / browser crawler test, official custom domain and professionally designed social preview image remain unverified. The existing landing copy still contains broad Gemini AI claims that need a separate accuracy audit before promotion.
+- **B-12 / P1-06a — Pitch composer is local-only:** PR #33 passed synthetic CLI tests/typecheck/build, but is NOT an authenticated customer-facing pitch-writing page and does not contact real businesses. The founder must verify each public fact and approve any message before sending; the complete P1-06 in-app feature remains open.
+
 ## NEEDS MY APPROVAL
 - Merge any draft PR to `main` or deploy to production.
 - Resume or change the existing production Supabase project and confirm a staging environment for safe RLS testing.
