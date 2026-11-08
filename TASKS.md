@@ -55,7 +55,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [ ] **P2-08** Form trust details, privacy policy, FAQ, realistic copy, no fake testimonials.
 
 ## P3 — engineering hygiene, docs and go-to-market
-- [ ] **P3-01** Actual README: setup, architecture, support model and known limits.
+- [x] **P3-01** Actual README: setup, architecture, support model and known limits.
 - [x] **P3-02** Safe `.env.example` with variable names only, no credentials.
 - [ ] **P3-03** Unit tests for status validation, input validation and lead score parsing.
 - [ ] **P3-04** Integration tests for client data isolation and public form submission.
