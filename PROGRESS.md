@@ -227,3 +227,14 @@
 - **Verification:** GitHub file creation and draft PR creation succeeded; source/document content reviewed. No local test or browser run; no CI/Vercel build outcome verified. Documentation-only change; build READY is not asserted. Functional QA remains blocked by inactive Supabase and RLS unknowns.
 - **How to verify:** Review the PR text, ensure names/metrics are fictional and no contactable addresses are used; then with approved staging tenant validate form submission, dashboard visibility, status editing and two-tenant RLS as specified. Do not run against real customers.
 - **Status:** Draft PR created; documentation task complete, live demonstration unverified. No production, payment or outreach actions.
+## P1-06a — Local founder-reviewed pitch composer (work underway)
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/33
+- **Branch:** `growth/p1-06a-reviewed-pitch-cli-20261109` from main.
+- **Files:** `scripts/pitch-writer.mjs`, `tests/pitch-writer.test.mjs`, `docs/PITCH_WRITER_CLI.md`, `package.json` and `.github/workflows/pitch-writer-tests.yml`.
+- **Work:** locally compose WhatsApp/business DM, LinkedIn and email *drafts only* using human-verified public business facts, with no LLM/provider cost, scraping, contact searching, storage or auto-sending. Input validation rejects obvious personal contact details and unsupported channels.
+- **Tests:** GitHub Actions run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42520690888: `npm run test:pitch` step **SUCCESS** on synthetic inputs.
+- **Full build:** GitHub CI `npm ci`, TypeScript and Next build are still in progress. Do not mark P1-06a done until this finishes successfully (or a specific blocker is logged).
+- **How to verify:** After green CI, use `npm run pitch -- --business "Example Coaching" --verified-fact "the institute offers entrance-exam batches" --channel all`. All output stays local; founder must verify actual fact and appropriate contact permissions before any send.
+- **Remaining for P1-06:** An authenticated, premium-design in-app pitch writer plus customer workflow integration remains unimplemented.
+- **Status:** Source and synthetic unit tests complete; full build verdict pending. Main/production untouched.
+
