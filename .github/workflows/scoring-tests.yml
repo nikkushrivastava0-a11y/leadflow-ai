@@ -1,0 +1,25 @@
+name: Gemini scoring regression tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [fix/p0-10-modern-gemini-scoring-20261109]
+
+permissions:
+  contents: read
+
+jobs:
+  scoring-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Unit tests (no external API calls)
+        run: npm run test:unit
