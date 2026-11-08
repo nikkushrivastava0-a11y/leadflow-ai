@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 export default async function DynamicLeadForm(props: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ success?: string }>;
+  searchParams: Promise<{ success?: string; error?: string }>;
 }) {
   const params = await props.params;
   const searchParams = await props.searchParams;
@@ -22,6 +22,33 @@ export default async function DynamicLeadForm(props: {
           <p className="text-slate-600">Your details have been submitted successfully. We will get back to you soon.</p>
         </div>
       </div>
+    );
+  }
+
+  // An insert error should be visible to the visitor, never a silent no-op.
+  // This route is public by design, and must have separate RLS and spam checks.
+  if (searchParams?.error === "save") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#a65d31] p-4">
+        <section role="alert" className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
+          <p className="text-xs font-semibold uppercase tracking-wider text-red-700">
+            Submission not saved
+          </p>
+          <h1 className="mt-3 text-2xl font-bold text-slate-900">
+            We couldn&apos;t save your enquiry.
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-700">
+            Please try again in a moment. No confirmation was recorded.
+            If the problem continues, contact the business directly.
+          </p>
+          <a
+            href={`/form/${encodeURIComponent(slug)}`}
+            className="mt-6 inline-flex rounded-md bg-[#a65d31] px-5 py-3 text-sm font-semibold text-white"
+          >
+            Try again
+          </a>
+        </section>
+      </main>
     );
   }
 
@@ -49,7 +76,7 @@ export default async function DynamicLeadForm(props: {
 
     if (error) {
       console.error("Error saving lead:", error);
-      return;
+      redirect(`/form/${encodeURIComponent(slug)}?error=save`);
     }
     
     // Dashboard refresh karo aur success page par bhejo
