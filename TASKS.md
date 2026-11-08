@@ -20,7 +20,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [ ] **P0-03** Verify Razorpay payment signature, amount, order ownership and paid status server-side before enabling a Pro plan.
 - [ ] **P0-04** Replace misleading browser-only payment-success toast with verified server confirmation.
 - [ ] **P0-05** Restore connected Supabase availability and inspect actual `leads`/`clients` schema, RLS and privileges.
-- [ ] **P0-06** Resolve mismatch between manual `user_id` lead writes and dashboard `client_slug` queries.
+- [x] **P0-06** Resolve mismatch between manual `user_id` lead writes and dashboard `client_slug` queries.
 - [ ] **P0-07** Validate public form fields and ensure submitted slug belongs to a real client before insert.
 - [ ] **P0-08** Add genuine request throttling, spam resistance and duplicate handling to public enquiry path.
 - [ ] **P0-09** Display public form submission failures instead of silently doing nothing.
