@@ -3,428 +3,270 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Activity,
-  ArrowDownRight,
-  ArrowRight,
-  ArrowUpRight,
-  BadgeCheck,
-  BarChart3,
-  CheckCircle2,
-  CircleDot,
-  Code2,
-  Compass,
-  ExternalLink,
-  GitBranch,
-  Handshake,
-  LayoutGrid,
-  ListTodo,
-  Megaphone,
-  RefreshCw,
-  Search,
-  ShieldCheck,
-  Target,
-  Users,
-  Wallet,
+  Activity, ArrowRight, ArrowUpRight, CheckCircle2,
+  CircleDot, ExternalLink, GitBranch, Search, ShieldCheck,
 } from "lucide-react";
 import {
-  AGENTS,
-  GITHUB_REPO_URL,
-  type AgentId,
-  type StudioTasksResult,
+  AGENTS, GITHUB_REPO_URL,
+  type AgentId, type StudioTasksResult,
 } from "@/lib/agent-studio";
 import styles from "./agent-studio.module.css";
 
-const ICONS = {
-  CEO: Compass,
-  CTO: Code2,
-  CMO: Megaphone,
-  SALES: Handshake,
-  PRODUCT: LayoutGrid,
-  CFO: Wallet,
+type Scope = "ALL" | AgentId;
+type TaskStatus = "all" | "open" | "closed";
+const roleCopy: Record<AgentId, string> = {
+  CEO: "Decide what matters.",
+  CTO: "Make it work.",
+  CMO: "Give it a voice.",
+  SALES: "Find the right people.",
+  PRODUCT: "Make it worth using.",
+  CFO: "Know the numbers.",
+};
+const roleLabels: Record<AgentId, string> = {
+  CEO: "Strategy", CTO: "Engineering", CMO: "Marketing",
+  SALES: "Sales", PRODUCT: "Product", CFO: "Finance",
 };
 
-const WORKSTREAMS = [
-  {
-    step: "01",
-    title: "Make it reliable",
-    note: "Data isolation, forms, access and payments",
-    detail: "Launch gate",
-  },
-  {
-    step: "02",
-    title: "Show the value",
-    note: "One niche, one demo, one clear offer",
-    detail: "Customer discovery",
-  },
-  {
-    step: "03",
-    title: "Close & learn",
-    note: "Pilot conversations into paid adoption",
-    detail: "First revenue",
-  },
-];
+export default function AgentStudio({ tasks, source }: StudioTasksResult) {
+  const [activeId, setActiveId] = useState<AgentId>("CTO");
+  const [scope, setScope] = useState<Scope>("ALL");
+  const [status, setStatus] = useState<TaskStatus>("open");
+  const [search, setSearch] = useState("");
 
-type RoleFilter = AgentId | "ALL";
-type TaskFilter = "all" | "open" | "closed";
+  const active = AGENTS.find((agent) => agent.id === activeId)!;
+  const synced = source === "github";
+  const open = synced ? tasks.filter((task) => task.state === "open").length : null;
+  const closed = synced ? tasks.filter((task) => task.state === "closed").length : null;
+  const donePercent = synced && tasks.length > 0
+    ? Math.round(((closed ?? 0) / tasks.length) * 100)
+    : null;
 
-export default function AgentStudio({
-  tasks,
-  source,
-}: StudioTasksResult) {
-  const [role, setRole] = useState<RoleFilter>("ALL");
-  const [taskStatus, setTaskStatus] = useState<TaskFilter>("all");
-  const [query, setQuery] = useState("");
+  const selectedTasks = tasks.filter((task) =>
+    task.role === activeId && task.state === "open"
+  );
 
-  const hasLiveIssues = source === "github";
-  const openCount = tasks.filter((task) => task.state === "open").length;
-  const completedCount = tasks.filter((task) => task.state === "closed").length;
-  const progress =
-    tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return tasks.filter((task) =>
+      (scope === "ALL" || task.role === scope) &&
+      (status === "all" || task.state === status) &&
+      (!term || task.title.toLowerCase().includes(term) ||
+        task.role.toLowerCase().includes(term))
+    );
+  }, [tasks, scope, status, search]);
 
-  const visibleTasks = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    return tasks.filter((task) => {
-      return (
-        (role === "ALL" || task.role === role) &&
-        (taskStatus === "all" || task.state === taskStatus) &&
-        (!term ||
-          task.title.toLowerCase().includes(term) ||
-          task.role.toLowerCase().includes(term))
-      );
-    });
-  }, [tasks, role, taskStatus, query]);
+  function selectRole(id: AgentId) {
+    setActiveId(id);
+    setScope(id);
+  }
 
   return (
-    <div className={styles.app}>
-      <aside className={styles.sidebar}>
-        <Link href="/" className={styles.brand} aria-label="LeadFlow AI home">
-          <div className={styles.brandMark}><Activity size={19} strokeWidth={2.6} /></div>
-          <span>leadflow<span className={styles.brandEmphasis}>.ai</span></span>
+    <div className={styles.shell}>
+      <header className={styles.topLine}>
+        <Link href="/" className={styles.wordmark} aria-label="LeadFlow AI home">
+          <span className={styles.logoSquare}>L<span>F</span></span>
+          <span>leadflow<span className={styles.wordmarkDot}>.ai</span></span>
         </Link>
-
-        <div className={styles.workspace}>
-          <span className={styles.workspaceDot} />
-          <span>FOUNDER WORKSPACE</span>
+        <div className={styles.topCenter}>
+          <span className={styles.tinyCircle} /> THE FOUNDER&apos;S DESK
+          <span className={styles.topDivider}>/</span> WORKSPACE 001
         </div>
-
-        <nav className={styles.nav} aria-label="Agent studio sections">
-          <span className={styles.navSection}>WORKSPACE</span>
-          <a className={styles.navActive} href="#overview">
-            <LayoutGrid size={17} /> Overview
-          </a>
-          <a href="#agents">
-            <Users size={17} /> The team
-          </a>
-          <a href="#work-queue">
-            <ListTodo size={17} /> Work queue
-            <span className={styles.navNumber}>{hasLiveIssues ? openCount : "—"}</span>
-          </a>
-          <a href="#milestones">
-            <Target size={17} /> Milestones
-          </a>
-          <span className={styles.navSection}>YOUR PRODUCT</span>
-          <Link href="/dashboard">
-            <BarChart3 size={17} /> Lead dashboard
-            <ArrowUpRight size={14} className={styles.navArrow} />
-          </Link>
-          <a href={GITHUB_REPO_URL + "/issues"} target="_blank" rel="noreferrer">
-            <GitBranch size={17} /> GitHub issues
-            <ArrowUpRight size={14} className={styles.navArrow} />
-          </a>
-        </nav>
-
-        <div className={styles.sidebarBottom}>
-          <div className={styles.sidebarCaption}>HOW THIS WORKS</div>
-          <p>Six specialised roles. One founder in control. Work is tracked in GitHub — not simulated.</p>
-          <div className={styles.sidebarFoot}><ShieldCheck size={15} /> Read-only · No autonomous actions</div>
+        <div className={styles.topRight}>
+          <span className={styles.connection}><span className={styles.signal} /> {synced ? "GITHUB SYNCED" : "SYNC UNAVAILABLE"}</span>
+          <Link href="/dashboard" className={styles.topLink}>PRODUCT APP <ArrowUpRight size={15} /></Link>
         </div>
-      </aside>
+      </header>
 
-      <main className={styles.main} id="overview">
-        <div className={styles.utilityBar}>
-          <div className={styles.breadcrumb}>
-            <span>Workspace</span><span className={styles.slash}>/</span>
-            <strong>Agent operations</strong>
-          </div>
-          <div className={styles.utilityRight}>
-            <span className={styles.publicPill}><CircleDot size={13} /> Public read-only preview</span>
-            <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer" className={styles.repoLink}>
-              <GitBranch size={16} /> Repository <ArrowUpRight size={14} />
-            </a>
-          </div>
-        </div>
-
-        <div className={styles.content}>
+      <main>
+        <section className={styles.hero} aria-labelledby="studio-title">
           <div className={styles.intro}>
-            <div>
-              <span className={styles.eyebrow}>LEADFLOW / STUDIO 01</span>
-              <h1>Agent <span>operations.</span></h1>
-              <p>One place to see who owns what, what&apos;s next, and what&apos;s actually moving.</p>
+            <div className={styles.supra}><span>LEADFLOW / OPERATIONS</span><span>EST. 2026</span></div>
+            <h1 id="studio-title">One founder.<br /><span>Six disciplines.</span></h1>
+            <p className={styles.heroBody}>
+              Engineering, sales, marketing, product, strategy and finance.
+              One working board for the jobs that move LeadFlow AI forward.
+            </p>
+            <div className={styles.heroActions}>
+              <a className={styles.primaryAction} href="#work-queue">See the actual work <ArrowUpRight size={19}/></a>
+              <span className={styles.heroFootnote}>No pretend agents. No fake revenue.</span>
             </div>
-            <div className={styles.introMeta}>
-              <span className={styles.metaLabel}>OPERATING MODEL</span>
-              <strong>Founder-led, agent-assisted</strong>
-              <span>Every external action needs your approval.</span>
+            <div className={styles.indexLine}><span>01 — 06</span><span>SELECT A ROLE ON THE 3D DESK</span></div>
+          </div>
+
+          <div className={styles.stage}>
+            <div className={styles.stageTop}>
+              <span className={styles.stageTag}>THE WORK TABLE / 3D</span>
+              <span className={styles.stageControls}><span /> INTERACTIVE OBJECT</span>
+            </div>
+            <div className={styles.stageGrain} aria-hidden="true"/>
+            <div className={styles.perspective}>
+              <div className={styles.platform}>
+                <div className={styles.platformBase} />
+                <div className={styles.platformTop}>
+                  <div className={styles.platformGrid}>
+                    {AGENTS.map((agent,i) => (
+                      <button
+                        type="button"
+                        key={agent.id}
+                        className={activeId === agent.id ? styles.tileSelected : styles.tile}
+                        onClick={() => selectRole(agent.id)}
+                        aria-label={"Select " + agent.title + " agent role"}
+                        aria-pressed={activeId === agent.id}
+                      >
+                        <span className={styles.tileIndex}>0{i + 1}</span>
+                        <span className={styles.tileName}>{agent.title}</span>
+                        <span className={styles.tileLine}/>
+                        <span className={styles.tileSubtitle}>{roleLabels[agent.id]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className={styles.stageBottom}>
+              <span><span className={styles.stageMarker}/> YOU CONTROL EVERY ACTION</span>
+              <span>FIG. 01 — OPERATING ROLES</span>
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.ticker} aria-label="Verified operating snapshot">
+          <div><span className={styles.tickerLabel}>DEFINED ROLES</span><strong>06</strong></div>
+          <div><span className={styles.tickerLabel}>OPEN GITHUB TASKS</span><strong>{open === null ? "—" : String(open).padStart(2,"0")}</strong></div>
+          <div><span className={styles.tickerLabel}>ISSUES CLOSED</span><strong>{closed === null ? "—" : String(closed).padStart(2,"0")}</strong></div>
+          <div><span className={styles.tickerLabel}>REAL REVENUE</span><strong className={styles.unavailable}>NOT CONNECTED</strong></div>
+          <div className={styles.tickerAside}><span className={styles.tickerLabel}>WEEK 6 GOAL</span><strong>03 <small>PAYING CUSTOMERS / TARGET</small></strong></div>
+        </section>
+
+        <section className={styles.roleSection} id="roles">
+          <div className={styles.sectionKicker}>01 / TEAM ARCHITECTURE</div>
+          <div className={styles.roleIntro}>
+            <h2>Who handles what<span className={styles.dot}>.</span></h2>
+            <p>Select any specialist to see responsibilities and GitHub work. These are defined AI assisted roles, not active background bots.</p>
+          </div>
+          <div className={styles.roleTabs} role="group" aria-label="Select an AI team role">
+            {AGENTS.map((agent,i) => (
+              <button
+                type="button"
+                key={agent.id}
+                className={activeId === agent.id ? styles.roleTabOn : styles.roleTab}
+                onClick={() => selectRole(agent.id)}
+                aria-pressed={activeId === agent.id}
+              >
+                <span className={styles.roleTabIndex}>0{i+1}</span>
+                <span>{agent.title}</span>
+                <ArrowUpRight size={16} />
+              </button>
+            ))}
+          </div>
+          <div className={styles.roleDetail} aria-live="polite">
+            <div className={styles.detailLeft}>
+              <span className={styles.detailOverline}>{active.number} / {roleLabels[activeId].toUpperCase()} DEPARTMENT</span>
+              <h3>{roleCopy[activeId]}</h3>
+              <p>{active.mission}</p>
+              <div className={styles.deliverable}><span>THE OUTPUT</span><strong>{active.deliverable}</strong></div>
+            </div>
+            <div className={styles.detailRight}>
+              <div className={styles.detailHeading}>
+                <span>ASSIGNED WORK</span>
+                <span>{synced ? selectedTasks.length + " OPEN" : "STATUS UNKNOWN"}</span>
+              </div>
+              {!synced ? (
+                <div className={styles.detailEmpty}>GitHub issues cannot be verified at the moment.</div>
+              ) : selectedTasks.length ? selectedTasks.slice(0,3).map((task, i) => (
+                <a key={task.id} href={task.url} target="_blank" rel="noreferrer" className={styles.detailTask}>
+                  <span>0{i+1}</span>
+                  <strong>{task.title}</strong>
+                  <span className={styles.detailPriority}>{task.priority}</span>
+                  <ArrowUpRight size={16}/>
+                </a>
+              )) : (
+                <div className={styles.detailEmpty}>No open tasks are currently assigned to this role.</div>
+              )}
+              <a className={styles.detailAll} href="#work-queue" onClick={() => setScope(activeId)}>Review the entire work queue <ArrowRight size={16}/></a>
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.workSection} id="work-queue" aria-labelledby="work-queue-title">
+          <div className={styles.sectionKicker}>02 / LIVE TASK TRACKER</div>
+          <div className={styles.workIntro}>
+            <div><h2 id="work-queue-title">The work, not the hype<span className={styles.dot}>.</span></h2>
+              <p>Open and completed tasks come from actual GitHub issues. Click any item to read its acceptance criteria.</p></div>
+            <a href={GITHUB_REPO_URL + "/issues"} target="_blank" rel="noreferrer" className={styles.githubButton}><GitBranch size={16}/> OPEN GITHUB <ExternalLink size={14}/></a>
+          </div>
+
+          <div className={styles.workFilters}>
+            <div className={styles.statusSwitch} role="group" aria-label="Filter issue status">
+              {([["open","Open"],["all","All"],["closed","Closed"]] as const).map(([value,label]) => (
+                <button type="button" key={value} className={status===value?styles.statusOn:styles.statusOff} onClick={() => setStatus(value)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className={styles.filterRight}>
+              <label className={styles.selectWrap}>
+                <span>ROLE</span>
+                <select aria-label="Filter by role" value={scope} onChange={(event)=>setScope(event.target.value as Scope)}>
+                  <option value="ALL">All roles</option>
+                  {AGENTS.map((agent)=><option key={agent.id} value={agent.id}>{agent.title}</option>)}
+                </select>
+              </label>
+              <label className={styles.searchWrap}><Search size={17}/><input aria-label="Search tasks" value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Find a task"/></label>
             </div>
           </div>
 
-          <section className={styles.hero} aria-label="Startup mission">
-            <div className={styles.heroMesh} aria-hidden="true" />
-            <div className={styles.heroText}>
-              <div className={styles.heroKicker}><span className={styles.liveDot} /> 60-DAY OPERATING PLAN</div>
-              <h2>Six roles.<br /><em>One clear mission.</em></h2>
-              <p>Make LeadFlow AI reliable, valuable to one customer segment, and ready for the first paying businesses.</p>
-              <a href="#work-queue" className={styles.heroButton}>
-                Explore the work queue <ArrowRight size={17} />
-              </a>
-            </div>
-            <div className={styles.heroGoal}>
-              <span className={styles.goalCaption}>WEEK 6 TARGET</span>
-              <strong>03<span>/03</span></strong>
-              <div>paying customers</div>
-              <p>Target only — actual customer numbers are not connected.</p>
-              <div className={styles.goalTrack}><span /></div>
-              <span className={styles.goalNote}>Target review: 20 Dec 2026</span>
-            </div>
-          </section>
-
-          <section className={styles.metrics} aria-label="Operational summary">
-            <div className={styles.metric}>
-              <span className={styles.metricLabel}>TEAM ROLES</span>
-              <strong>06 <span>defined</span></strong>
-              <div className={styles.metricFoot}><Users size={14} /> Specialist responsibilities</div>
-            </div>
-            <div className={styles.metric}>
-              <span className={styles.metricLabel}>OPEN TASKS</span>
-              <strong>{hasLiveIssues ? String(openCount).padStart(2, "0") : "—"} <span>issues</span></strong>
-              <div className={styles.metricFoot}><GitBranch size={14} /> {hasLiveIssues ? "From GitHub" : "GitHub unavailable"}</div>
-            </div>
-            <div className={styles.metric}>
-              <span className={styles.metricLabel}>COMPLETED</span>
-              <strong>{hasLiveIssues ? String(completedCount).padStart(2, "0") : "—"} <span>issues</span></strong>
-              <div className={styles.metricFoot}><CheckCircle2 size={14} /> {hasLiveIssues ? "Verified tracker state" : "Status unavailable"}</div>
-            </div>
-            <div className={styles.metric}>
-              <span className={styles.metricLabel}>MONTHLY REVENUE</span>
-              <strong>— <span>not linked</span></strong>
-              <div className={styles.metricFoot}><Wallet size={14} /> Never estimated as actual</div>
-            </div>
-          </section>
-
-          <section className={styles.section} id="agents">
-            <div className={styles.sectionHeader}>
-              <div>
-                <div className={styles.sectionOverline}>THE TEAM</div>
-                <h2>Meet your six roles<span className={styles.sectionDot}>.</span></h2>
-                <p>Each has a defined lane, an expected output, and trackable tasks.</p>
+          <div className={styles.issuePanel}>
+            {!synced ? (
+              <div className={styles.issueEmpty}>
+                <ShieldCheck size={22}/>
+                <strong>GitHub cannot be reached.</strong>
+                <span>Issue counts are unavailable. We never replace missing data with made up results.</span>
               </div>
-              <span className={styles.sectionIndex}>01 / 03</span>
-            </div>
-
-            <div className={styles.agentGrid}>
-              {AGENTS.map((agent) => {
-                const Icon = ICONS[agent.id];
-                const count = tasks.filter(
-                  (task) => task.role === agent.id && task.state === "open"
-                ).length;
-                const selected = role === agent.id;
-                return (
-                  <button
-                    type="button"
-                    className={selected ? styles.agentCardSelected : styles.agentCard}
-                    key={agent.id}
-                    onClick={() => {
-                      setRole(selected ? "ALL" : agent.id);
-                      setTaskStatus("all");
-                      document.getElementById("work-queue")?.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    aria-label={"Filter work queue for " + agent.title}
-                  >
-                    <div className={styles.agentTop}>
-                      <span className={styles.agentNumber}>{agent.number} / ROLE</span>
-                      <div className={styles.agentIcon}><Icon size={20} strokeWidth={1.8} /></div>
-                    </div>
-                    <h3>{agent.title}</h3>
-                    <span className={styles.agentSubtitle}>{agent.subtitle}</span>
-                    <p className={styles.agentMission}>{agent.mission}</p>
-                    <div className={styles.agentTags}>
-                      {agent.responsibilities.map((item) => (
-                        <span key={item}>{item}</span>
-                      ))}
-                    </div>
-                    <div className={styles.agentBottom}>
-                      <span><CircleDot size={13} /> {hasLiveIssues ? count + " open task" + (count === 1 ? "" : "s") : "Tracker unavailable"}</span>
-                      <ArrowUpRight size={17} />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            <p className={styles.agentDisclaimer}>
-              <ShieldCheck size={14} /> Roles describe responsibilities. No autonomous bots have been deployed or claimed to be working in the background.
-            </p>
-          </section>
-
-          <section className={styles.section} id="work-queue">
-            <div className={styles.sectionHeader}>
-              <div>
-                <div className={styles.sectionOverline}>REAL GITHUB TASKS</div>
-                <h2>Work in the queue<span className={styles.sectionDot}>.</span></h2>
-                <p>Issues are the source of truth. Closing an issue updates the status here after sync.</p>
-              </div>
-              <div className={styles.queueActions}>
-                <button
-                  type="button"
-                  className={styles.refreshButton}
-                  onClick={() => window.location.reload()}
-                  title="Reload the latest cached issue data"
-                ><RefreshCw size={15} /> Refresh</button>
-                <a className={styles.secondaryButton} href={GITHUB_REPO_URL + "/issues"} target="_blank" rel="noreferrer">
-                  Open GitHub <ExternalLink size={15} />
+            ) : filtered.length ? (
+              filtered.map((task) => (
+                <a key={task.id} href={task.url} target="_blank" rel="noreferrer" className={styles.issueRow}>
+                  <span className={styles.issueNo}>#{task.id.toString().padStart(3,"0")}</span>
+                  <span className={styles.issueState}>{task.state === "closed" ? <CheckCircle2 size={18}/> : <CircleDot size={18}/>}</span>
+                  <span className={styles.issueMain}><strong>{task.title}</strong><small>{task.role} / UPDATED {task.updatedAt.slice(0,10)}</small></span>
+                  <span className={task.priority==="P0"?styles.criticalPriority:styles.normalPriority}>{task.priority}</span>
+                  <ArrowUpRight size={18} className={styles.issueArrow}/>
                 </a>
+              ))
+            ) : (
+              <div className={styles.issueEmpty}>
+                <Search size={22}/>
+                <strong>Nothing in this view.</strong>
+                <span>Try another role or status filter.</span>
               </div>
+            )}
+            <div className={styles.issueFooter}>
+              <span>{synced ? filtered.length + " SHOWN / " + tasks.length + " TRACKED" : "UNVERIFIED"}</span>
+              <span>GITHUB PUBLIC API · CACHED UP TO 2 MIN</span>
             </div>
+          </div>
+        </section>
 
-            <div className={styles.queueCard}>
-              <div className={styles.queueTop}>
-                <div className={styles.queueTabs} aria-label="Filter tasks by status">
-                  {([
-                    ["all", "All tasks"],
-                    ["open", "Open"],
-                    ["closed", "Completed"],
-                  ] as const).map(([key, label]) => (
-                    <button
-                      type="button"
-                      key={key}
-                      onClick={() => setTaskStatus(key)}
-                      className={taskStatus === key ? styles.queueTabActive : styles.queueTab}
-                    >{label}</button>
-                  ))}
-                </div>
-                <div className={styles.searchWrap}>
-                  <Search size={16} />
-                  <input
-                    aria-label="Search tasks"
-                    placeholder="Search work..."
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.roleFilters}>
-                <button
-                  type="button"
-                  className={role === "ALL" ? styles.roleFilterActive : styles.roleFilter}
-                  onClick={() => setRole("ALL")}
-                >All roles</button>
-                {AGENTS.map((agent) => (
-                  <button
-                    type="button"
-                    key={agent.id}
-                    className={role === agent.id ? styles.roleFilterActive : styles.roleFilter}
-                    onClick={() => setRole(agent.id)}
-                  >{agent.title}</button>
-                ))}
-              </div>
-
-              {!hasLiveIssues ? (
-                <div className={styles.emptyState}>
-                  <GitBranch size={25} />
-                  <h3>GitHub status isn&apos;t available right now</h3>
-                  <p>The six role descriptions are available, but issue counts and completion have not been verified. Check the repository directly.</p>
-                  <a href={GITHUB_REPO_URL + "/issues"} target="_blank" rel="noreferrer">See issues <ArrowUpRight size={14} /></a>
-                </div>
-              ) : visibleTasks.length === 0 ? (
-                <div className={styles.emptyState}>
-                  <Search size={24} />
-                  <h3>No issues match these filters</h3>
-                  <p>Try another role, clear the search, or view all issues on GitHub.</p>
-                  <button type="button" onClick={() => { setRole("ALL"); setTaskStatus("all"); setQuery(""); }}>Clear filters</button>
-                </div>
-              ) : (
-                <div className={styles.taskList}>
-                  {visibleTasks.map((task) => (
-                    <a
-                      href={task.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={styles.taskRow}
-                      key={task.id}
-                    >
-                      <span className={task.state === "closed" ? styles.taskDone : styles.taskOpen}>
-                        {task.state === "closed" ? <CheckCircle2 size={18} /> : <CircleDot size={18} />}
-                      </span>
-                      <div className={styles.taskBody}>
-                        <span className={styles.taskTitle}>{task.title}</span>
-                        <div className={styles.taskSub}>
-                          <span>#{task.id}</span><span>·</span>
-                          <span>{task.role}</span><span>·</span>
-                          <span>Updated {task.updatedAt.slice(0, 10)}</span>
-                        </div>
-                      </div>
-                      <span className={task.priority === "P0" ? styles.priorityP0 : styles.priorityP1}>{task.priority}</span>
-                      <span className={task.state === "closed" ? styles.statusDone : styles.statusOpen}>
-                        {task.state === "closed" ? "Closed" : "Open"}
-                      </span>
-                      <ArrowUpRight size={16} className={styles.taskLinkIcon} />
-                    </a>
-                  ))}
-                </div>
-              )}
-              <div className={styles.queueFooter}>
-                <span>{hasLiveIssues ? visibleTasks.length + " shown · " + tasks.length + " tracked" : "Issue sync unavailable"}</span>
-                <span>Source: public GitHub issues · cached up to 2 min</span>
-              </div>
-            </div>
-          </section>
-
-          <section className={styles.lowerGrid} id="milestones">
-            <div className={styles.milestonePanel}>
-              <div className={styles.sectionOverline}>THE OPERATING PLAN</div>
-              <h2>What happens next.</h2>
-              <p className={styles.panelIntro}>One clear sequence. Don&apos;t sell an unverified product, and don&apos;t overbuild before speaking to customers.</p>
-              <div className={styles.milestoneList}>
-                {WORKSTREAMS.map((work, index) => (
-                  <div className={styles.milestone} key={work.step}>
-                    <div className={styles.milestoneIndicator}>{work.step}</div>
-                    <div className={styles.milestoneCopy}>
-                      <strong>{work.title}</strong>
-                      <span>{work.note}</span>
-                    </div>
-                    <span className={styles.milestoneDetail}>{work.detail}</span>
-                    {index !== WORKSTREAMS.length - 1 && <span className={styles.milestoneConnector} />}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className={styles.truthPanel}>
-              <div className={styles.sectionOverline}>TRACKER HEALTH</div>
-              <h2>Progress, not theatre.</h2>
-              <p className={styles.panelIntro}>This number represents closed GitHub issues — not AI activity or paying customers.</p>
-              <div className={styles.progressHeader}>
-                <strong>{hasLiveIssues && tasks.length ? progress + "%" : "—"}</strong>
-                <span>tracked issues closed</span>
-              </div>
-              <div className={styles.progressTrack}><span style={{ width: hasLiveIssues ? progress + "%" : "0%" }} /></div>
-              <div className={styles.progressLegend}>
-                <span><span className={styles.legendClosed} /> {hasLiveIssues ? completedCount : "—"} closed</span>
-                <span><span className={styles.legendOpen} /> {hasLiveIssues ? openCount : "—"} open</span>
-              </div>
-              <div className={styles.truthDivider} />
-              <div className={styles.truthItem}><BadgeCheck size={18} /> Actual agent execution <strong>Manual / assisted</strong></div>
-              <div className={styles.truthItem}><GitBranch size={18} /> Task status <strong>{hasLiveIssues ? "GitHub connected" : "Unavailable"}</strong></div>
-              <div className={styles.truthItem}><Wallet size={18} /> Revenue telemetry <strong>Not configured</strong></div>
-            </div>
-          </section>
-
-          <footer className={styles.footer}>
-            <div><span className={styles.footerMark}>L.</span> LeadFlow AI <span className={styles.footerSeparator}>/</span> Founder operations</div>
-            <p>Built for decisions, not the illusion of autonomous work.</p>
-            <a href="#overview">Back to top <ArrowDownRight size={15} className={styles.backToTop} /></a>
-          </footer>
-        </div>
+        <section className={styles.closing}>
+          <div className={styles.closingNumber}>03 / THE NEXT MILESTONE</div>
+          <div className={styles.closingText}>
+            <h2>First, make it dependable.<br/>Then, make it <span>worth paying for.</span></h2>
+            <p>Stabilise the lead flow. Show a coaching centre a working demo. Validate demand before building more automation.</p>
+          </div>
+          <div className={styles.closingBox}>
+            <span>ISSUES VERIFIED CLOSED</span>
+            <strong>{donePercent === null ? "—" : donePercent + "%"}</strong>
+            <div className={styles.progressTrack}><span style={{transform: "scaleX(" + (donePercent ?? 0)/100 + ")"}}/></div>
+            <small>Based on actual closed GitHub issues, not an AI activity estimate.</small>
+          </div>
+        </section>
       </main>
+
+      <footer className={styles.footer}>
+        <span><Activity size={16}/> LEADFLOW AI / FOUNDER OPERATIONS</span>
+        <span>PUBLIC READ ONLY PREVIEW · NO AUTONOMOUS ACTIONS</span>
+        <Link href="/">BACK TO LEADFLOW <ArrowUpRight size={15}/></Link>
+      </footer>
     </div>
   );
 }
