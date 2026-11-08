@@ -14,7 +14,7 @@ import {
   Code2,
   Compass,
   ExternalLink,
-  Github,
+  GitBranch,
   Handshake,
   LayoutGrid,
   ListTodo,
@@ -128,7 +128,7 @@ export default function AgentStudio({
             <ArrowUpRight size={14} className={styles.navArrow} />
           </Link>
           <a href={GITHUB_REPO_URL + "/issues"} target="_blank" rel="noreferrer">
-            <Github size={17} /> GitHub issues
+            <GitBranch size={17} /> GitHub issues
             <ArrowUpRight size={14} className={styles.navArrow} />
           </a>
         </nav>
@@ -149,7 +149,7 @@ export default function AgentStudio({
           <div className={styles.utilityRight}>
             <span className={styles.publicPill}><CircleDot size={13} /> Public read-only preview</span>
             <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer" className={styles.repoLink}>
-              <Github size={16} /> Repository <ArrowUpRight size={14} />
+              <GitBranch size={16} /> Repository <ArrowUpRight size={14} />
             </a>
           </div>
         </div>
@@ -197,7 +197,7 @@ export default function AgentStudio({
             <div className={styles.metric}>
               <span className={styles.metricLabel}>OPEN TASKS</span>
               <strong>{hasLiveIssues ? String(openCount).padStart(2, "0") : "—"} <span>issues</span></strong>
-              <div className={styles.metricFoot}><Github size={14} /> {hasLiveIssues ? "From GitHub" : "GitHub unavailable"}</div>
+              <div className={styles.metricFoot}><GitBranch size={14} /> {hasLiveIssues ? "From GitHub" : "GitHub unavailable"}</div>
             </div>
             <div className={styles.metric}>
               <span className={styles.metricLabel}>COMPLETED</span>
@@ -330,7 +330,7 @@ export default function AgentStudio({
 
               {!hasLiveIssues ? (
                 <div className={styles.emptyState}>
-                  <Github size={25} />
+                  <GitBranch size={25} />
                   <h3>GitHub status isn&apos;t available right now</h3>
                   <p>The six role descriptions are available, but issue counts and completion have not been verified. Check the repository directly.</p>
                   <a href={GITHUB_REPO_URL + "/issues"} target="_blank" rel="noreferrer">See issues <ArrowUpRight size={14} /></a>
@@ -413,7 +413,7 @@ export default function AgentStudio({
               </div>
               <div className={styles.truthDivider} />
               <div className={styles.truthItem}><BadgeCheck size={18} /> Actual agent execution <strong>Manual / assisted</strong></div>
-              <div className={styles.truthItem}><Github size={18} /> Task status <strong>{hasLiveIssues ? "GitHub connected" : "Unavailable"}</strong></div>
+              <div className={styles.truthItem}><GitBranch size={18} /> Task status <strong>{hasLiveIssues ? "GitHub connected" : "Unavailable"}</strong></div>
               <div className={styles.truthItem}><Wallet size={18} /> Revenue telemetry <strong>Not configured</strong></div>
             </div>
           </section>
