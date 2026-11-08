@@ -168,3 +168,12 @@
 - **How to verify:** Inspect draft PR and green CI; use ONLY synthetic signatures and nonproduction integration later, including replay/idempotency tests after schema restoration.
 - **Status:** HMAC core & unit tests done; full secure billing blocked by inactive Supabase and unverified schema.
 
+## P1-04a — First research cohort of coaching-centre prospects (not outreach)
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/28
+- **File:** `docs/COACHING_PROSPECT_RESEARCH_20261109.md`
+- **Output:** 13 real named publicly discoverable coaching organisations in Greater Noida/West, with public area, source link where official site confirmed, neutral discovery angle and explicit `Not contacted` status. Includes qualification checklist and safe, human-reviewed opener. Source checks performed 2026-11-09 via public local/business discovery; locations/contact channels require revalidation by founder.
+- **Build:** Vercel preview `dpl_75qcYpmPLER7tDui5HLV9S5Esm3T` READY at commit `7436047`; logs show production compile completed without errors.
+- **Tests:** Static document only; no businesses contacted, site scraped with automated scripts, prospect CRM records created or customer data read.
+- **How to verify:** Review the 13 source entries, independently confirm each centre's active business contact page, then select five for permission-respecting founder discovery conversations. Any messages require founder approval.
+- **Status:** Research subtask complete; P1-04 general lead-finder product remains unchecked.
+
