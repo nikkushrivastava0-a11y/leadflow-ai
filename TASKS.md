@@ -54,6 +54,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [ ] **P2-06** Privacy-respecting conversion analytics and consent handling.
 - [ ] **P2-07** Accessibility and keyboard checks, contrast and reduced motion.
 - [ ] **P2-08** Form trust details, privacy policy, FAQ, realistic copy, no fake testimonials.
+- [x] **P2-08a** Prepare non-published form privacy notice, FAQ and approval checklist (draft PR #36; parent P2-08 remains open).
 
 ## P3 — engineering hygiene, docs and go-to-market
 - [x] **P3-01** Actual README: setup, architecture, support model and known limits.
