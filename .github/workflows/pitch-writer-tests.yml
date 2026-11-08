@@ -1,0 +1,32 @@
+name: Founder pitch composer quality
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [growth/p1-06a-reviewed-pitch-cli-20261109]
+permissions:
+  contents: read
+jobs:
+  pitch-quality:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-build-only-key
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: rzp_test_placeholder
+      RAZORPAY_KEY_SECRET: fake-build-secret-never-used
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Unit tests (no network or message sending)
+        run: npm run test:pitch
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
