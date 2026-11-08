@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { notFound } from "next/navigation";
 import { isValidClientSlug, validatePublicLead } from "@/lib/public-lead-validation";
 
 export default async function DynamicLeadForm(props: {
@@ -37,7 +36,7 @@ export default async function DynamicLeadForm(props: {
     );
   }
 
-  // Submit Logic (Bina kisi login check ke)
+  // Public server action: never trust browser-side required fields.
   async function submitLead(formData: FormData) {
     "use server";
     const supabase = await createClient();
@@ -80,8 +79,8 @@ export default async function DynamicLeadForm(props: {
     ]);
 
     if (error) {
-      console.error("Error saving lead:", error);
-      return;
+      console.error("Public lead insert failed", error.code);
+      redirect(`/form/${encodeURIComponent(slug)}?error=save`);
     }
     
     // Dashboard refresh karo aur success page par bhejo
