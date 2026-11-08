@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [fix/p0-10-modern-gemini-scoring-20261109]
+    branches: [fix/p0-10-modern-gemini-scoring-20261109, security/p0-11-private-scoring-signals-20261109]
 
 permissions:
   contents: read
