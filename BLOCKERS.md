@@ -10,6 +10,8 @@ Never silently skip required checks. Link each unresolved blocker to a task.
 - **B-04 — Real browser visual/interaction QA:** preview build statuses do not prove the page was visually tested or that data-backed flows work.
 - **B-05 — Testing access:** local dependencies/test runner may be unavailable. For each task use Vercel preview build where available and record what was actually verified.
 
+- **B-06 / P0-12 — Existing baseline lint failures:** New CI run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42516442923 shows TypeScript check SUCCESS but ESLint fails with 5 errors: redundant `@ts-ignore` checkout import (1), two unescaped apostrophes in dashboard JSX (2), and two explicit `any` uses in upgrade button (2). Build stage skipped because lint failed. Fix on the CI draft branch and re-run before marking P0-12 done.
+
 ## NEEDS MY APPROVAL
 - Merge any draft PR to `main` or deploy to production.
 - Update real Supabase schema/RLS or any real customer data.
