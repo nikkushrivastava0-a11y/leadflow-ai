@@ -34,6 +34,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [ ] **P1-02** Follow-up due dates, contact notes and workflow reminders.
 - [ ] **P1-03** Lead qualification pipeline consistent for public and manual leads.
 - [ ] **P1-04** Ethical local lead-finder research assistant using publicly available business information; no mass scraping or unsolicited auto-send.
+- [x] **P1-04a** Research 13 verifiable public Greater Noida coaching businesses for founder-reviewed discovery (subtask only, no automated lead finder).
 - [ ] **P1-05** Focused coaching-centre landing/site generator prototype based on real approved copy.
 - [ ] **P1-06** Contextual pitch-writer that outputs drafts for human approval.
 - [ ] **P1-07** CRM search, filters, sorting and pagination.
