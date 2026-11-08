@@ -1,16 +1,28 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { notFound } from "next/navigation";
+import { isValidClientSlug, validatePublicLead } from "@/lib/public-lead-validation";
 
 export default async function DynamicLeadForm(props: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ success?: string }>;
+  searchParams: Promise<{ success?: string; error?: string }>;
 }) {
   const params = await props.params;
   const searchParams = await props.searchParams;
   
   // URL se slug nikal rahe hain (e.g., 'cafe-xyz')
   const slug = params.slug;
+  if (!isValidClientSlug(slug)) notFound();
+
+  const errorMessage =
+    searchParams.error === "invalid"
+      ? "Please enter a valid name, email and phone number."
+      : searchParams.error === "unknown"
+        ? "This enquiry form is not accepting submissions. Contact the business directly."
+        : searchParams.error === "save"
+          ? "Your enquiry was not saved. Please try again."
+          : null;
 
   // Success UI
   if (searchParams?.success) {
@@ -30,9 +42,29 @@ export default async function DynamicLeadForm(props: {
     "use server";
     const supabase = await createClient();
     
-    const name = formData.get("name") as string;
-    const email = formData.get("email") as string;
-    const phone = formData.get("phone") as string;
+    const validation = validatePublicLead({
+      name: formData.get("name"),
+      email: formData.get("email"),
+      phone: formData.get("phone"),
+    });
+    if (!validation.ok) {
+      redirect(`/form/${encodeURIComponent(slug)}?error=invalid`);
+    }
+
+    // Verify that the submitted slug identifies a real registered client.
+    // Database RLS must separately authorize public inserts for that tenant.
+    const { data: client, error: lookupError } = await supabase
+      .from("clients")
+      .select("slug")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (lookupError || !client) {
+      console.error("Public form client could not be verified");
+      redirect(`/form/${encodeURIComponent(slug)}?error=unknown`);
+    }
+
+    const { name, email, phone } = validation.value;
 
     // Supabase mein data insert ho raha hai - client_slug ke sath!
     const { error } = await supabase.from("leads").insert([
@@ -54,7 +86,7 @@ export default async function DynamicLeadForm(props: {
     
     // Dashboard refresh karo aur success page par bhejo
     revalidatePath("/dashboard");
-    redirect(`/form/${slug}?success=true`);
+    redirect(`/form/${encodeURIComponent(slug)}?success=true`);
   }
 
   return (
@@ -66,18 +98,24 @@ export default async function DynamicLeadForm(props: {
           {slug.replace('-', ' ')}
         </h1>
         
+        {errorMessage && (
+          <div role="alert" className="mb-5 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            {errorMessage}
+          </div>
+        )}
+
         <form action={submitLead} className="flex flex-col gap-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-[#a65d31]">Full Name</label>
-            <input required type="text" name="name" className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="John Doe" />
+            <input required type="text" name="name" minLength={2} maxLength={100} className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="John Doe" />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-[#a65d31]">Email Address</label>
-            <input required type="email" name="email" className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="john@example.com" />
+            <input required type="email" name="email" maxLength={254} className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="john@example.com" />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-[#a65d31]">Phone Number</label>
-            <input required type="tel" name="phone" className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="+91 98765 43210" />
+            <input required type="tel" name="phone" maxLength={24} className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="+91 98765 43210" />
           </div>
           <button type="submit" className="mt-4 w-full rounded-md bg-[#a65d31] p-2.5 text-white hover:bg-[#8a4b26] font-semibold transition-colors">
             Submit
