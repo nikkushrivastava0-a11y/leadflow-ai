@@ -57,7 +57,8 @@ test("model receives no contact details or instructions hidden in notes", async 
     ]) {
       assert.ok(!sentBody.includes(privateText), privateText);
     }
-    assert.ok(sentBody.includes('"source":"other"'));
+    const request = JSON.parse(sentBody);
+    assert.ok(request.contents[0].parts[0].text.includes('"source":"other"'));
   } finally {
     globalThis.fetch = priorFetch;
     if (priorKey === undefined) delete process.env.GEMINI_API_KEY;
