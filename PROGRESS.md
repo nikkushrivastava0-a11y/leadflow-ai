@@ -261,3 +261,12 @@
 - **Verification:** GitHub branch, commit and draft PR confirmed; content manually reviewed. No local runtime test, CI result, Vercel preview result, or browser/functional QA verified. Documentation-only change. Parent P2-08 remains open.
 - **How to verify:** Review PR #36; compare notice with actual approved data-flow and policy, check staging two-tenant RLS, obtain founder/legal approval, then implement and browser-test UI separately. Do not publish placeholders.
 - **Safety:** No main merge, production deployment, customer records, payments, credentials or outreach touched.
+
+## P1-08a — Manual enquiry form link copying (2026-11-09)
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/37
+- **Branch:** `feature/p1-08a-copy-form-link-20261109` from main, head `f49637c`.
+- **Files:** `src/components/form-share-link.tsx` (new), `src/app/dashboard/page.tsx`.
+- **Implementation:** Add explicit clipboard copy button beside the already displayed owner-specific public form URL. Keyboard focus outline, live success/error text, and manual-copy fallback; no auto-send or new dependencies. Existing hard-coded form origin unchanged.
+- **Verification attempted:** GitHub confirmed commits and draft PR. GitHub Actions returned **no PR-triggered workflow runs** for head at initial check; Vercel commit status was **pending**. No local npm build, browser clipboard permission test, or DB-backed form test performed. Do not claim build or functional QA passed.
+- **How to verify:** Check Vercel preview build status and logs; sign into a synthetic owner dashboard, click Copy form link, paste into address bar and verify expected slug; deny clipboard permissions and verify fallback; keyboard tab/Enter and screen-reader status check; verify canonical domain in staging. QR remains a separate subtask.
+- **Status:** Draft PR created; build/interaction QA pending. Parent P1-08 remains open.
