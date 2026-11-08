@@ -1,4 +1,4 @@
-import { extractScoringSignals } from "./lead-scoring-signals";
+import { extractScoringSignals } from "./lead-scoring-signals.ts";
 
 type LeadForScoring = {
   name: string;
