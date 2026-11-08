@@ -114,3 +114,14 @@
 ## Overnight continuation
 - Created a **finite six-run hourly overnight automation** scheduled for Nov 9, 2026, from approximately 02:00 to 07:00 IST. The prompt instructs read tracker, produce one independent draft PR per safe task, attempt tests/build, update logs, skip blockers, and avoid production/data/payment/outreach writes. Future successful work depends on actual tool access and each run's result. No claim that future work is completed in this log.
 
+## P0-07 — Server-side public lead and slug validation
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/23
+- **Dependency:** stacked on PR #17 (public error page); PR target is `fix/p0-09-visible-form-errors-20261109`, not main.
+- **Sources:** `src/lib/public-leads.ts`, `src/app/form/[slug]/page.tsx`, `tests/public-leads.test.ts`, `.github/workflows/public-leads-tests.yml`.
+- **Changes:** name/email/phone validation on server, digit-count limits and length bounds, normalized email, invalid-slug rejection, fail-closed existence lookup for client slug, distinct user-facing errors.
+- **Tests:** GitHub Actions run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42517199903 SUCCESS; `Unit tests (synthetic inputs only)` step confirmed successful.
+- **Build:** Vercel preview `dpl_H3Y32qB8wC1VAxhzLZi4U4EFupy4` READY for commit `82e1be7`; logs finished without errors.
+- **Not yet verified:** Real anonymous read of clients table, real database insert and RLS tenant protection. Read-only Supabase project status checked Nov 9: `INACTIVE`. This PR may reject legitimate forms until a safe public slug lookup policy is established.
+- **How to verify:** With staging DB active and public-safe RLS, submit valid synthetic enquiry and ensure it appears for correct owner; unknown slug, invalid email and phone must fail without writing records.
+- **Status:** Source, unit CI and preview build passed; **functional launch approval blocked by actual Supabase RLS**.
+
