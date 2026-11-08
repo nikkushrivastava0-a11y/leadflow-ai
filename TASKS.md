@@ -40,6 +40,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [x] **P1-06a** Working local no-send WhatsApp/LinkedIn/email pitch composer with verified-fact input and tests (customer-facing UI remains open).
 - [ ] **P1-07** CRM search, filters, sorting and pagination.
 - [ ] **P1-08** QR/link-sharing for an individual business enquiry form.
+- [x] **P1-08a** Add manual copy-to-clipboard control with accessible feedback on owner dashboard (draft PR #37; QR and domain QA remain open).
 - [ ] **P1-09** Safe UPI/checkout flow and invoicing plan with reconciled paid activation.
 - [x] **P1-10** Synthetic, believable coaching-centre sales demo (no fake proof).
 - [ ] **P1-11** Verified owner onboarding and automatic client profile provisioning.
