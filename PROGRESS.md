@@ -97,3 +97,20 @@
 - **Verify:** Inspect GitHub Actions job step results for run 42516678879; review PR #18 before merging.
 - **Status:** CI proposal and checks verified, still draft.
 
+## P3-07 — Founder-led sales outreach playbook
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/20
+- **Source:** `docs/SALES_OUTREACH_PLAYBOOK.md` — coaching ICP, 6 discovery questions, LinkedIn/email/permission-based WhatsApp drafts, 7-minute demo, honest pricing experiment, minimal funnel KPIs.
+- **Build:** Vercel preview `dpl_CXGkN5nBJtwNAs454RLmRGCBic6U` READY.
+- **Tests:** Static document; manual content review remains. **No messages were sent** or prospects contacted.
+- **How to verify:** Review PR doc, personalise a message using a genuine public business fact, obtain founder approval before any send.
+
+## P3-02 — Safe .env.example
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/22
+- **Source:** `.env.example` — documented placeholder-only variable names; explicit distinction between public IDs and server-only keys; no credentials committed.
+- **Build:** Vercel preview `dpl_4q77WbrWYBTU2VSCNyZHXZTj6q1N` READY.
+- **Tests:** No runtime behaviour changed. File must still be reviewed for accidental secrets and Vercel env requirements before merging.
+- **How to verify:** Open file in PR and confirm values are placeholders only.
+
+## Overnight continuation
+- Created a **finite six-run hourly overnight automation** scheduled for Nov 9, 2026, from approximately 02:00 to 07:00 IST. The prompt instructs read tracker, produce one independent draft PR per safe task, attempt tests/build, update logs, skip blockers, and avoid production/data/payment/outreach writes. Future successful work depends on actual tool access and each run's result. No claim that future work is completed in this log.
+
