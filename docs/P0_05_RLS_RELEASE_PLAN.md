@@ -2,7 +2,24 @@
 
 **Status:** critical release blocker. Live database remains unchanged. This document is a proposal, **not** evidence of a secure production system.
 
-## Live observations (2026-11-09, read-only)
+## UPDATE — founder enabled RLS (2026-11-09, reverified)
+
+**Current status overrides the historical observations immediately below.** The connected `leadflow-ai` project remains `ACTIVE_HEALTHY`. Both `public.clients` and `public.leads` now have **RLS ENABLED**. Supabase Security Advisor no longer reports the previous disabled-RLS ERRORs.
+
+However, this is **not** a complete or verified tenant-security release:
+
+- `clients` has **zero RLS policies**. With normal Supabase browser/session clients, the authenticated owner dashboard cannot read its own `clients.slug`, resulting in a missing-profile state.
+- `leads` still has only two historic policies: `SELECT` and `INSERT` with `auth.uid() = user_id`. With no `UPDATE`/`DELETE` policy, owner edit/delete cannot succeed via ordinary user sessions. Public forms insert without `user_id`, so anonymous submission is blocked.
+- Both `anon` and `authenticated` roles still have broad grants, including `TRUNCATE`. Read-only `has_table_privilege` checks returned **true** for `TRUNCATE` on both tables for both roles. PostgreSQL RLS does not govern `TRUNCATE`. This is a continuing privilege risk, even though the normal PostgREST row APIs do not directly expose a TRUNCATE endpoint.
+- Existing data remains at **7 clients and 94 leads** in the read-only aggregate recheck; 43 leads have NULL `user_id`. These will not pass the current user-ID-based SELECT policy without an owner reconciliation plan.
+- Advisor still reports `clients` as `rls_enabled_no_policy` (INFO) and leaked-password protection disabled (WARN).
+- **No policy, grant, schema, customer record or production configuration was modified by the assistant.** The founder enabled RLS independently.
+
+**Immediate priorities:** (1) review/restrict non-row-scoped grants, especially `TRUNCATE`, with an approved SQL change; (2) stage an Auth-linked owner policy and private reconciliation of legacy records; (3) ensure protected form submission is wired and tested; (4) run two-business authorized/anonymous smoke tests. **Do not run the below SQL proposal blindly:** it still aborts on unmatched business and unowned legacy records, and current source code is not ready for its privilege changes.
+
+### Historical baseline — captured before the founder enabled RLS
+
+## Live observations (2026-11-09, read-only; historical RLS-OFF snapshot)
 
 Connected project: `leadflow-ai`, ref `pqzawjeggyxarwdkdynz`, `ACTIVE_HEALTHY`.
 
