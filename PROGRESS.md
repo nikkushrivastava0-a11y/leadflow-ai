@@ -333,3 +333,13 @@
 - **Vercel:** `dpl_5L2gfW6CWChbMue4ykpFgYEYjsKh` head `516732a` READY. Build only, not client functional QA.
 - **Production status:** Absolutely NO Supabase SQL change applied. Same excessive grants still exist until approved deployment. Existing client owner policy and public form remain unresolved, and P0-05 parent task is still OPEN.
 - **How to verify:** Review PR #42 and CI test, privately run the read-only grant-audit SQL on staging, obtain founder approval, apply only there and prove postcondition, then schedule a coordinated live change with rollback.
+
+## P0-05d — Two-tenant RLS synthetic regression and live anonymous read check
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/43 (stacked on RLS proposal PR #40, NOT main).
+- **Files:** `security/tests/p0-05d-two-tenant-migration.sh`, `.github/workflows/rls-two-tenant-tests.yml`, `docs/P0_05D_TWO_TENANT_TEST_PLAN.md`.
+- **Changes:** Disposable PostgreSQL 17 test schema mimics auth.uid(), auth.users, clients and leads. Executes the exact draft RLS SQL from parent PR #40 after testing the missing approval sentinel, unmatched owner abort and unowned lead abort. Validates two mock owner accounts cannot read/change each other's leads; anonymous reads/truncate denied; own lead status edits, manual insert allowed; owner changes denied; legacy/public synthetic lead read rules verified. Zero production customer records.
+- **CI:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42591583351 **SUCCESS**: isolated PostgreSQL test, `npm ci`, `npx tsc --noEmit`, `npm run build` all passed.
+- **Vercel preview:** `dpl_AAFwvDFNmgbGDpP1f1UUtgwmdyQt` at head commit `296e399` **READY**.
+- **Additional live read-only RLS check:** `BEGIN READ ONLY; SET LOCAL ROLE anon; SELECT aggregate row counts; ROLLBACK;` returned **0 readable clients, 0 readable leads** for anon while 7 clients/94 leads exist. This confirms anonymous SELECT is presently row-restricted. It does NOT test owner access, grant-based TRUNCATE exposure, JWT authentication or complete API authorization.
+- **Remaining blocker:** Real Supabase staging and JWT owner A/B tests are still needed; current live owner profile policy missing. 1 unmatched owner and 38 ambiguous leads are not safe to auto-reconcile. Proposal SQL must not be applied until founder-approved staged release. No live database DDL, DML or key changes made.
+- **How to verify:** Inspect synthetic CI and PR diff; in an approved nonproduction Supabase project repeat with real test JWTs, public form and API clients; review security advisor before production.
