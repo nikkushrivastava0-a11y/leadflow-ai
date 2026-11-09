@@ -323,3 +323,13 @@
 - **No changes** to live SQL, grants, data, secrets or production deployment from assistant. No end-to-end owner/anonymous flow test was claimed.
 - **Status:** RLS toggles complete, functional tenant policies and privilege reduction remain **OPEN**; do not mark the full P0-05 resolved.
 
+
+## P0-05c — Least-privilege API-role grants (continuation)
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/42
+- **Files:** `security/proposals/p0-05c-revoke-excess-grants.sql`, `security/proposals/p0-05c-readonly-grant-audit.sql`, `security/tests/p0-05c-grant-integration.sh`, `.github/workflows/restrict-nonrow-grants.yml`, `docs/P0_05C_LEAST_PRIVILEGE_GRANTS.md`.
+- **Read-only live confirmation:** Both tables retain RLS ON and have explicit direct `TRUNCATE`, `TRIGGER` and `REFERENCES` privileges for `anon` and `authenticated`. No such direct grants through PUBLIC in present ACLs; privileged postgres/service_role grants not touched. Table-wide TRUNCATE is not RLS-protected, but the standard REST Data API has no direct TRUNCATE endpoint.
+- **Change proposed:** Approval-sentinel guarded, fully transactional removal of exactly these three non-row-scoped privileges while retaining SELECT/INSERT/UPDATE/DELETE and RLS. Not in auto-run migration path; postcondition failure rolls back.
+- **Integration test:** GitHub Actions https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42590768041 **SUCCESS**. Disposable PostgreSQL 17 with synthetic roles/tables verified guard refuses unapproved execution, targeted grants removed when approved, SELECT/INSERT/UPDATE/DELETE preserved and RLS still enabled. `npm ci`, `npx tsc --noEmit` and `npm run build` also passed.
+- **Vercel:** `dpl_5L2gfW6CWChbMue4ykpFgYEYjsKh` head `516732a` READY. Build only, not client functional QA.
+- **Production status:** Absolutely NO Supabase SQL change applied. Same excessive grants still exist until approved deployment. Existing client owner policy and public form remain unresolved, and P0-05 parent task is still OPEN.
+- **How to verify:** Review PR #42 and CI test, privately run the read-only grant-audit SQL on staging, obtain founder approval, apply only there and prove postcondition, then schedule a coordinated live change with rollback.
