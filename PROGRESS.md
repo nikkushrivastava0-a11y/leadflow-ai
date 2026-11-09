@@ -292,3 +292,13 @@
 - **Status:** P1-05a implementation PR created; parent P1-05 remains open (no in-app builder or live domain).
 
 - **CI follow-up:** GitHub Actions synthetic test run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42546238194 completed SUCCESS for PR #39. This does not establish Next.js build, browser UX, or live customer functionality.
+## P0-05a — Live Supabase restored; critical RLS and legacy ownership audit
+- **Read-only Supabase result (2026-11-09):** `leadflow-ai` (`pqzawjeggyxarwdkdynz`) is `ACTIVE_HEALTHY`. `public.clients` and `public.leads` both have RLS **disabled**, while `anon` has broad SELECT/INSERT/UPDATE/DELETE and extra table privileges. Existing `leads` SELECT/INSERT policies are inactive. Supabase Security Advisor reports `rls_disabled_in_public` (ERROR, 2 tables) and `policy_exists_rls_disabled` (ERROR, leads).
+- **Aggregate-only legacy data check:** 7 client profiles, 94 leads, 14 Auth accounts; 1 client not matched to confirmed Auth user. 51 leads missing `client_slug`, 5 with orphan slug, 43 missing `user_id`, 33 with invalid `user_id`. Overlapping groups; 38 leads lack both a verified business owner and valid Auth user. **No names/emails/phone content or raw records were read or copied.**
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/40
+- **Files:** `docs/P0_05_RLS_RELEASE_PLAN.md`, `security/proposals/p0-05-reviewed-rls.sql` (staging-only, approval-gated proposal), `security/proposals/p0-05-readonly-audit.sql`, static safety tests and CI workflow. SQL aborts on ambiguous owners/data and is deliberately not an auto-migration.
+- **Build:** Vercel preview deployment `dpl_42dLDLP9Dg6JZ7yrHiePpCrhC4BK` READY (head commit `5757a14`). GitHub CI run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42582489331 reports SUCCESS for the same head commit; full duplicate CI run #42582530619 status checked separately.
+- **Safety:** No SQL writes, schema changes, RLS toggles, grants, customer records, Auth users, secrets, payments or production deployments were modified. Public access vulnerability remains **OPEN**. Do not onboard more real customers.
+- **How to verify:** Compare Supabase Security Advisor and READ ONLY aggregate query with draft plan. On privately provisioned staging environment, resolve owner mapping manually, test two synthetic tenants, review rate-limited service-only public submissions and rerun security advisors. Production RLS change requires user approval and coordinated release.
+- **Status:** P0-05a audit and review draft finished. Parent P0-05 is NOT fixed; urgent production security decision is outstanding.
+
