@@ -302,3 +302,14 @@
 - **How to verify:** Compare Supabase Security Advisor and READ ONLY aggregate query with draft plan. On privately provisioned staging environment, resolve owner mapping manually, test two synthetic tenants, review rate-limited service-only public submissions and rerun security advisors. Production RLS change requires user approval and coordinated release.
 - **Status:** P0-05a audit and review draft finished. Parent P0-05 is NOT fixed; urgent production security decision is outstanding.
 
+## P0-05b — Protected server-only public form writer (continuation)
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/41
+- **Branch:** `security/p0-05b-server-only-form-write-20261109` stacked on PR #30 (which depends on #23 -> #17); separate RLS plan PR #40.
+- **Files:** `src/lib/server/public-submission-client.ts`, `src/app/form/[slug]/page.tsx`, `tests/public-submission-secret.test.mjs`, `tsconfig.json`, `.github/workflows/public-server-writer-tests.yml`, `docs/P0_05B_PUBLIC_SERVER_WRITER.md`.
+- **Change:** Public form checks server-side input, shared Redis rate limit/duplicate reservation, then accesses only exact business slug and fixed lead insert through server-only Supabase `sb_secret_` key. Missing/invalid key fails closed; no browser or SSR cookie-based service-role client. No real env keys configured.
+- **CI:** First run failed inherited TypeScript test import-extension checks (TS5097). Fixed with `allowImportingTsExtensions` under `noEmit`. Latest https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42583267983 **SUCCESS**: secret tests, mocked Redis guard tests, typecheck and build.
+- **Vercel:** Preview `dpl_5nTkGGCgtSdYz8onKt7NmVnBd5Gj` **READY** at commit `76b74ef`.
+- **Live database:** No mutations. Read-only recheck confirms RLS still DISABLED on `public.clients` and `public.leads`. **Critical exposure remains**. Neither PR #40 nor PR #41 can be merged separately as a safe live fix.
+- **How to verify:** Only in approved staging, configure server-only key plus shared Redis guard (never put in GitHub), run synthetic two-tenant RLS tests and anon-key direct API denial, then test valid/invalid public enquiries and error/duplicate scenarios.
+- **Status:** Draft code/tests/build complete; live RLS fix and integration remain approval-gated. Parent P0-05 still OPEN.
+
