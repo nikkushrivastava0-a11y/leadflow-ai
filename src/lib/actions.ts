@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { scoreLead } from "@/lib/gemini";
+import { isValidLeadId, verifyLeadDeletion } from "@/lib/lead-delete-guard";
 
 export async function getLeads() {
   const supabase = await createClient();
@@ -71,6 +72,8 @@ export async function addLead(formData: {
 }
 
 export async function deleteLead(id: string) {
+  if (!isValidLeadId(id)) return { error: "Invalid lead selection." };
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -78,15 +81,22 @@ export async function deleteLead(id: string) {
 
   if (!user) return { error: "Not authenticated" };
 
-  const { error } = await supabase
+  // Keep owner UUID filter as an additional gate to the live RLS policy.
+  // Never interpret a zero-row delete as success: RLS may block writes
+  // without surfacing a database error.
+  const { data: deletedRows, error } = await supabase
     .from("leads")
     .delete()
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("id");
 
-  if (error) {
-    console.error("Error deleting lead:", error);
-    return { error: error.message };
+  const result = verifyLeadDeletion(id, deletedRows, error);
+  if (!result.confirmed) {
+    if (error) {
+      console.error("Lead deletion failed:", error.code || "database_error");
+    }
+    return { error: result.message };
   }
 
   revalidatePath("/dashboard");
