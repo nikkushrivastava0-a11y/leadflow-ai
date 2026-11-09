@@ -13,7 +13,7 @@ npx tsc --noEmit
 npm run build
 ```
 
-The scanner parses literal imports/exports/require/dynamic-import and CSS @plugin/@import in `src`, `scripts`, `tests`, and known config files. It checks manifest-to-lockfile root declarations and prints import names. `reviewCandidates` means **not referenced in these scanned files**; it does not establish that a package is unused. Next plugins, CSS, build scripts, dynamic imports with computed names, runtime require, transitive packages, and generated code can be missed. Static scan can also produce false positives; verify each candidate manually.
+The scanner parses literal imports/exports/require/dynamic-import and CSS @plugin/@import in `src`, `scripts`, and known config files (test fixtures are excluded to prevent synthetic imports being reported as production dependencies). It checks manifest-to-lockfile root declarations and prints import names. `reviewCandidates` means **not referenced in these scanned files**; it does not establish that a package is unused. Next plugins, CSS, build scripts, dynamic imports with computed names, runtime require, transitive packages, and generated code can be missed. Static scan can also produce false positives; verify each candidate manually.
 
 The audit workflow runs on the draft branch and PRs, without any Supabase connection, real payment keys or customer data. `npm audit` can make a registry advisory request in CI; it is deliberately nonblocking and reports only summary counts. A dependency vulnerability requires review, not an automatic upgrade. This does not establish software licensing, commercial terms, browser behaviour, or absence of vulnerabilities.
 
