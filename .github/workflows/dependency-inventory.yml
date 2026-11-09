@@ -1,0 +1,39 @@
+name: Dependency inventory (no removals)
+on:
+  push:
+    branches: [audit/p3-10-dependency-inventory-20261109]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  dependency-inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Unit tests
+        run: node --test tests/dependency-inventory.test.mjs
+      - name: Static package and lockfile inventory
+        run: node scripts/audit-dependencies.mjs
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Check production dependency vulnerabilities (non-blocking review report)
+        run: npm audit --omit=dev --audit-level=high --json > dependency-audit.json || true
+      - name: Summarize audit metadata (no credentials)
+        run: |
+          node -e 'const a=require("./dependency-audit.json");console.log(JSON.stringify({metadata:a.metadata?.vulnerabilities||{},note:"Review each advisory manually; audit is not a licence or runtime penetration test"}))'
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: fake-public-build-key
+          NEXT_PUBLIC_RAZORPAY_KEY_ID: rzp_test_placeholder
+          RAZORPAY_KEY_SECRET: fake-build-only
