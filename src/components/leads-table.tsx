@@ -1,7 +1,9 @@
 "use client";
 
-import { Lead } from "@/lib/types";
-import { deleteLead } from "@/lib/actions";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Lead, LEAD_STATUSES } from "@/lib/types";
+import { deleteLead, updateLeadStatus } from "@/lib/actions";
 import {
   Table,
   TableBody,
@@ -38,13 +40,76 @@ function scoreColor(score: number) {
   return "bg-gray-100 text-gray-700";
 }
 
+
+function LeadStatusSelect({ lead }: { lead: Lead }) {
+  const router = useRouter();
+  const [status, setStatus] = useState(lead.status);
+  const [saving, setSaving] = useState(false);
+
+  async function changeStatus(nextStatus: string) {
+    if (saving || nextStatus === status) return;
+    const previousStatus = status;
+    setStatus(nextStatus);
+    setSaving(true);
+
+    try {
+      const result = await updateLeadStatus(lead.id, nextStatus);
+      if (result?.error) {
+        setStatus(previousStatus);
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Lead status updated");
+      router.refresh();
+    } catch {
+      setStatus(previousStatus);
+      toast.error("Could not update lead. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <label className="inline-flex items-center gap-2">
+      <span className="sr-only">Status for {lead.name}</span>
+      <select
+        value={status}
+        onChange={(event) => void changeStatus(event.target.value)}
+        disabled={saving}
+        aria-label={`Status for ${lead.name}`}
+        className={`rounded-md border border-slate-200 px-2 py-1.5 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-60 ${statusColor(status)}`}
+      >
+        {LEAD_STATUSES.map((option) => (
+          <option key={option} value={option}>
+            {option.charAt(0).toUpperCase() + option.slice(1)}
+          </option>
+        ))}
+      </select>
+      {saving ? <span className="text-[10px] text-slate-500">Saving…</span> : null}
+    </label>
+  );
+}
+
 export function LeadsTable({ leads }: { leads: Lead[] }) {
-  async function handleDelete(id: string) {
-    const result = await deleteLead(id);
-    if (result?.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Lead deleted");
+  const router = useRouter();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function handleDelete(id: string, name: string) {
+    if (deletingId || !window.confirm(`Permanently delete ${name}'s lead? This cannot be undone.`)) return;
+
+    setDeletingId(id);
+    try {
+      const result = await deleteLead(id);
+      if (result?.success === true) {
+        toast.success("Lead deleted");
+        router.refresh();
+      } else {
+        toast.error(result?.error || "Deletion could not be confirmed.");
+      }
+    } catch {
+      toast.error("Deletion could not be confirmed. Please retry.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -81,9 +146,7 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
               <TableCell>{lead.phone || "—"}</TableCell>
               <TableCell className="capitalize">{lead.source}</TableCell>
               <TableCell>
-                <Badge variant="secondary" className={statusColor(lead.status)}>
-                  {lead.status}
-                </Badge>
+                <LeadStatusSelect lead={lead} />
               </TableCell>
               <TableCell>
                 <Badge variant="secondary" className={scoreColor(lead.score)}>
@@ -94,7 +157,9 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleDelete(lead.id)}
+                  onClick={() => handleDelete(lead.id, lead.name)}
+                  aria-label={`Delete lead ${lead.name}`}
+                  disabled={deletingId !== null}
                 >
                   <Trash2 className="h-4 w-4 text-red-500" />
                 </Button>
