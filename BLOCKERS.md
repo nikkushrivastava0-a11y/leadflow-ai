@@ -43,3 +43,6 @@ Keep every PR in Draft; read-only investigation and source changes to a new bran
 - **B-14 / P2-08a — Draft privacy FAQ not publishable:** PR #36 provides only proposed copy. Actual data controller/processor roles, lawful basis, consent recording, retention/deletion workflow, public policy URL and synthetic staging RLS remain unverified. Founder/legal review and browser accessibility QA are required before incorporating the text into the live form. Do not represent the draft as an implemented privacy policy.
 
 - **B-15 / P1-08a — Clipboard and domain verification:** Draft PR #37 adds manual link copying but GitHub Actions had no workflow runs and Vercel was pending at first check. Clipboard permission denial, keyboard/screen-reader behaviour, and existing hard-coded public form domain need preview/browser QA. QR is not implemented; P1-08 stays open.
+
+
+- **B-16 / P1-04b — Offline prospect verification gate:** Draft PR #38 accepts founder-supplied public business records but does not independently establish their truth, source ownership, outreach permissions or business relevance. Synthetic Actions run 42540236679 was in progress at initial review. Human fact checking and explicit approval required before any outreach; parent P1-04 remains open.
