@@ -350,3 +350,13 @@
 - **Fix:** Permit direct `user_id` fallback only if `client_slug IS NULL`; non-null unmatched slugs must remain hidden until privately reconciled. Preflight now rejects conflicting verified `user_id` and business owner. Parent PR #40's SQL was patched with the same fix; stacked PR #43 adds the adversarial test.
 - **Green regression:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42592968299 **SUCCESS** (PostgreSQL synthetic two-tenant checks, TypeScript, Next build). Parent PR #40 static regression test added after fix; final run verification recorded separately.
 - **Release status:** Both PRs remain draft. No live DDL, DML, ownership reassignment, credentials or Vercel production changes. Orphan-slug historical records will need manual reconciliation rather than permissive owner fallback.
+## P1-07 — CRM search, status, sorting and pagination
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/44
+- **Files:** `src/lib/lead-table-controls.ts`, `src/components/leads-table.tsx`, `tests/lead-table-controls.test.mjs`, `.github/workflows/crm-controls-tests.yml`.
+- **Changes:** Existing owner table gains search on name/email/phone/source, filters for new/contacted/qualified/won/lost, five sort choices, 10-row pagination and clear-filter/result-count controls; pure deterministic client-side selector clamps pages, preserves stable ordering and does not modify the data or make new requests. Existing dashboard design preserved.
+- **CI:** Initial run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42594479537 FAILED because an alphabetical-order test expected Neha before Naman. Corrected the test (code ordering was correct). Latest GitHub Actions https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42594604098 **SUCCESS** for revision `9bd8f4d6`; unit tests, `npm ci`, TypeScript and Next production compilation all passed with fake env variables.
+- **Vercel:** Preview for early head `d7324994` READY. A verified Vercel deployment matching final head was NOT confirmed; CI Next build is green.
+- **Limitations:** Operates only on authorized leads already fetched by dashboard. Not server-side large-table pagination, and does not fix existing missing `clients` owner RLS policy. No mobile/browser interaction QA or live Supabase test. Do not publish as customer-ready.
+- **How to verify:** Review draft PR and CI, then once RLS owner access is restored test search/status/pages with synthetic leads using signed-in account on mobile and keyboard.
+- **Status:** Small code feature and synthetic CI complete; full product usability gate remains open.
+
