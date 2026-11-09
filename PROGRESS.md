@@ -368,3 +368,29 @@
 - **CI:** Initial GitHub run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42595244794 FAILED at inventory because a deliberately fake `unlisted` import in a unit test was scanned as a real dependency. Fixed by excluding synthetic test fixtures from production import inventory. Unit tests and inventory passed in https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42595310178; npm install, audit, typecheck and build were still in progress when first checked. Latest head `5803ea46` CI result must be verified separately.
 - **How to verify:** Review draft PR, run `node --test tests/dependency-inventory.test.mjs`, `node scripts/audit-dependencies.mjs`, `npm ci`, `npx tsc --noEmit`, `npm run build` in a safe environment. Check GitHub Actions on the final head. Treat candidate packages as review-only; inspect package licences and hosting terms manually before commercial launch.
 - **Status:** P3-10a implementation and CI attempt complete; full P3-10 remains open, no production or functional claims.
+
+## P2-05a — Safe Supabase PKCE auth callback redirects
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/46
+- **Files:** `src/lib/auth-callback-origin.ts`, `src/app/auth/callback/route.ts`, `src/app/auth/auth-code-error/page.tsx`, `tests/auth-callback-origin.test.mjs`, CI and `docs/P2_05A_AUTH_CALLBACK_REDIRECTS.md`.
+- **Behavior:** Restricts auth redirects to server-controlled canonical/Vercel/local development origins, never arbitrary Host header or `next` query parameters; only redirects to dashboard if PKCE exchange returns a user+session. Failure goes to a noindex retry page with no-store and no-referrer headers. Does not log codes or tokens.
+- **Verification:** GitHub Actions https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42596932092 **SUCCESS** (pure hostile-host/query tests, `npm ci`, `npx tsc --noEmit`, `npm run build`). Earlier Vercel READY was for an earlier commit, so no final-head Vercel preview/browser QA confirmed.
+- **Remaining:** Actual configured Supabase PKCE redirect flow/session cookie continuity on the real allowed domain and review of OAuth configuration. Does not fix `clients` RLS or onboarding.
+- **Status:** Draft implementation and synthetic full CI verified; full P2-05 remains OPEN.
+
+## P1-11a — Signup email-verification truthfulness
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/47
+- **Files:** `src/lib/auth-submission-outcome.ts`, `src/app/login/page.tsx`, `tests/auth-submission-outcome.test.mjs`, CI and `docs/P1_11A_SIGNUP_VERIFICATION.md`.
+- **Behavior:** Distinguishes Supabase signup with `session: null` from a real login; shows generic accessible verification notice and stays on sign-in when confirmation pending. Signin requires both user and session, errors are handled, password state cleared. A valid Auth session does not imply a provisioned business.
+- **Verification:** GitHub Actions https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42597415041 **SUCCESS** (synthetic tests, TS typecheck, Next build). No real Auth users created or staging email testing; final Vercel preview not confirmed.
+- **Remaining:** Auth-linked client profile provisioning, live `clients` owner RLS SELECT, verified email confirmation page in staging, two-business tenant isolation; full P1-11 remains OPEN.
+- **Status:** Safe UX correction verified in draft only.
+
+## P0-13 — Confirmed CRM lead deletion
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/48
+- **Files:** `src/lib/lead-delete-guard.ts`, `src/lib/actions.ts`, `src/components/leads-table.tsx`, `tests/lead-delete-guard.test.mjs`, CI and `docs/P0_13_CONFIRMED_LEAD_DELETE.md`.
+- **Behavior:** Validates UUID, requires exactly one row returned by Supabase `.delete().select("id")` before claiming success, masks tenant existence, adds explicit native confirmation and blocks repeat clicks. Prevents the prior false success when RLS silently affects zero rows.
+- **Verification:** GitHub Actions https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42597949513 **SUCCESS** (zero-row/no-error unit cases, `npm ci`, TypeScript and Next build). No real customer data deletion, Vercel final-head verification or browser QA.
+- **Conflict:** CRM search PR #44 also edits `src/components/leads-table.tsx`. They require a reviewed merge/rebase; neither merged.
+- **Remaining:** Production DELETE policy is still missing under RLS, current `user_id` filter excludes legitimate NULL-user_id public leads; update only with reviewed owner migration. No actual deletion was tested in real database.
+- **Status:** Draft code + synthetic CI complete, production action remains blocked.
+
