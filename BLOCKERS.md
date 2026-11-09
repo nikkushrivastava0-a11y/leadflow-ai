@@ -68,3 +68,9 @@ Keep every PR in Draft; read-only investigation and source changes to a new bran
 - **Security Advisor improved:** previously reported disabled-RLS errors cleared. Remaining: `rls_enabled_no_policy` (clients, INFO), leaked password protection disabled (WARN).
 - **Production decision still required:** restrict non-row-scoped grants, stage Auth-linked owner policies, safely reconcile unmatched business and legacy leads, test public submission with approved rate limiter, and run two-business authorization tests. Do NOT enable wide-open anon policies.
 - No live SQL writes or schema changes were performed by the assistant in this recheck.
+
+## 2026-11-09 continued — least-privilege and tenant tests
+- **P0-05c proposed hardening:** PR #42 passed disposable Postgres integration, typecheck and Next build. Production still grants TRUNCATE/TRIGGER/REFERENCES to anon and authenticated. Review-only SQL is outside auto-deploy paths; no live permissions altered.
+- **P0-05d proposed RLS coverage:** PR #43 passed isolated two-tenant RLS migration tests and full build. It depends on PR #40, but cannot establish real Auth JWT behavior or safely resolve the 1 unmatched business / 38 ambiguous legacy leads. No live migration applied.
+- **Read-only anon role check SUCCESS:** In an explicitly READ ONLY transaction with `SET LOCAL ROLE anon`, aggregate SELECT on clients/leads returned zero rows each; RLS is preventing anonymous read access under that role. This does NOT mean the unrestricted TRUNCATE grant is safe or prove full API security.
+- **NEEDS FOUNDER APPROVAL:** coordinated staging environment, validated owner reconciliation, budget/privacy assessment for shared Redis+server secret, and a production maintenance/cutover decision. Do not paste credentials into GitHub or the chat.
