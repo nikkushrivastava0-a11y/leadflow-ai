@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const skipDirs = new Set(["node_modules", ".git", ".next", ".vercel", "coverage", "dist", "build"]);
 const sourceExtensions = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".css", ".scss"]);
-const scanDirs = ["src", "scripts", "tests"];
+const scanDirs = ["src", "scripts"];
 const scanConfig = [
   "next.config.ts", "next.config.js", "eslint.config.mjs",
   "postcss.config.mjs", "tailwind.config.ts", "tailwind.config.js",
