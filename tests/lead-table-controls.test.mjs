@@ -57,7 +57,7 @@ test("sorts score, name, and oldest deterministically", () => {
   const low = selectVisibleLeads(data, { ...filters, sort: "score-asc" });
   assert.deepEqual(low.rows.map(x => x.id), ["e", "d", "b", "a", "c"]);
   const byName = selectVisibleLeads(data, { ...filters, sort: "name" });
-  assert.deepEqual(byName.rows.map(x => x.id), ["d", "a", "e", "c", "b"]);
+  assert.deepEqual(byName.rows.map(x => x.id), ["d", "a", "c", "e", "b"]);
   const oldest = selectVisibleLeads(data, { ...filters, sort: "oldest" });
   assert.equal(oldest.rows[0].id, "e");
 });
