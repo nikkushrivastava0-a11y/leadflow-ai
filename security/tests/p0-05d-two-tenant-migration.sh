@@ -123,7 +123,15 @@ if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_
 fi
 psql -X -v ON_ERROR_STOP=1 -c "delete from public.leads where id='cccccccc-cccc-cccc-cccc-ccccccccccc1';" >/dev/null
 
-echo "5. Approved proposal may run against ONLY synthetic complete-owner data"
+echo "5. Conflicting valid owner/tenant IDs must abort before migration"
+psql -X -v ON_ERROR_STOP=1 -c "insert into public.leads (id,user_id,client_slug,name) values ('dddddddd-dddd-dddd-dddd-ddddddddddd2','$A','business-b','Conflicting owner before migration');" >/dev/null
+if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null 2>&1; then
+  echo "FAIL: conflicting tenant and Auth owner accepted" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -c "delete from public.leads where id='dddddddd-dddd-dddd-dddd-ddddddddddd2';" >/dev/null
+
+echo "6. Approved proposal may run against ONLY synthetic complete-owner data"
 psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null
 
 echo "6. Anonymous cannot read private business/lead data"
