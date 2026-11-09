@@ -1,6 +1,7 @@
 export type Lead = {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  client_slug: string | null;
   name: string;
   email: string | null;
   phone: string | null;
