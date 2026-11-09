@@ -79,3 +79,8 @@ Keep every PR in Draft; read-only investigation and source changes to a new bran
 - Initial unmerged owner RLS proposal allowed fallback on `NOT EXISTS (SELECT FROM clients)`. A 2-tenant synthetic test proved this could reveal a conflicting tenant's lead to the wrong `user_id` because clients RLS hides other businesses. Failing test: https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42592291211 (`expected 0, actual 1`).
 - Draft PR #40 and stacked #43 now require NULL `client_slug` for legacy UUID fallback and abort on conflicting verified owner+slug. Updated regression tests passed (https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42592968299). **DO NOT apply a previously copied version of the old migration SQL.**
 - Historical orphan non-NULL slugs must be reconciled privately; they remain hidden under the revised proposed RLS. This does not affect live policy until a reviewed rollout is approved.
+
+## B-18 / P3-10a — Dependency inventory is not a commercial licence approval
+- Draft PR #45 is a read-only inventory. Static import absence cannot prove a package unused; no dependencies were removed. `npm audit` summary is nonblocking and does not establish that packages are secure.
+- **Founder/reviewer approval required** before package removals, licence/hosting commitments, and any commercial rollout; inspect official dependency licences and hosting provider terms, and test each future cleanup separately. CI build does not prove browser or production readiness.
+- **Security blockers remain unchanged:** live Supabase RLS ON but clients owner policy missing, public form inserts blocked, excessive non-row-scoped grants; see P0-05 entries above. Do not onboard real customers based on this audit.
