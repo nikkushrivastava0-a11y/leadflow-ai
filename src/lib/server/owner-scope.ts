@@ -5,7 +5,7 @@ import { isValidBusinessSlug } from "@/lib/public-leads";
 type OwnerClient = Awaited<ReturnType<typeof createClient>>;
 
 export type OwnerScope =
-  | { ok: true; supabase: OwnerClient; userId: string; slug: string }
+  | { ok: true; supabase: OwnerClient; userId: string; slug: string; email: string }
   | { ok: false; reason: "not_authenticated" | "business_unavailable" };
 
 /**
@@ -31,10 +31,10 @@ export async function resolveOwnerScope(): Promise<OwnerScope> {
     return { ok: false, reason: "business_unavailable" };
   }
 
-  return { ok: true, supabase, userId: user.id, slug: business.slug };
+  return { ok: true, supabase, userId: user.id, slug: business.slug, email: user.email || "" };
 }
 
-export function ownerScopeMessage(reason: OwnerScope extends never ? never : "not_authenticated" | "business_unavailable") {
+export function ownerScopeMessage(reason: "not_authenticated" | "business_unavailable") {
   return reason === "not_authenticated"
     ? "Please sign in with a verified account."
     : "Business setup or access verification is pending. Please contact support.";
