@@ -270,3 +270,12 @@
 - **Verification attempted:** GitHub confirmed commits and draft PR. GitHub Actions returned **no PR-triggered workflow runs** for head at initial check; Vercel commit status was **pending**. No local npm build, browser clipboard permission test, or DB-backed form test performed. Do not claim build or functional QA passed.
 - **How to verify:** Check Vercel preview build status and logs; sign into a synthetic owner dashboard, click Copy form link, paste into address bar and verify expected slug; deny clipboard permissions and verify fallback; keyboard tab/Enter and screen-reader status check; verify canonical domain in staging. QR remains a separate subtask.
 - **Status:** Draft PR created; build/interaction QA pending. Parent P1-08 remains open.
+
+
+## 2026-11-09 — P1-04b offline public-business prospect qualifier
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/38 (base main, branch `feature/p1-04b-offline-prospect-qualifier-20261109`, head `5f017a1`).
+- **Files:** `scripts/qualify-prospects.mjs`, `tests/qualify-prospects.test.mjs`, `docs/OFFLINE_PROSPECT_QUALIFIER.md`, `.github/workflows/offline-prospect-tests.yml`.
+- **Work:** Local, no-network CLI for founder-supplied public business facts. Rejects unapproved personal-contact fields, flags duplicates and stale/missing HTTPS sources, returns a review-only JSON queue. Does not scrape, email, contact, score real buyers, access CRM, or validate the existence of any business.
+- **Verification:** GitHub confirmed four commits and DRAFT PR #38. GitHub Actions run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42540236679 was **IN PROGRESS** at first check; not claimed passed. No local Node execution or functional real-business QA. No Next/Vercel preview verification (standalone CLI).
+- **How to verify:** Check workflow conclusion; run `node --test tests/qualify-prospects.test.mjs` and `node scripts/qualify-prospects.mjs <local-json-file>` with fictional records; verify only six public business fields accepted and output never sends messages. Human review required before any actual business use.
+- **Status:** P1-04b implementation in draft PR; parent P1-04 remains open. No production/main/customer/payment/outreach actions.
