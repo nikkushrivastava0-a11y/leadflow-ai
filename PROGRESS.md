@@ -360,3 +360,11 @@
 - **How to verify:** Review draft PR and CI, then once RLS owner access is restored test search/status/pages with synthetic leads using signed-in account on mobile and keyboard.
 - **Status:** Small code feature and synthetic CI complete; full product usability gate remains open.
 
+
+## P3-10a — Read-only dependency inventory and commercial release gates (2026-11-09)
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/45; independent branch `audit/p3-10-dependency-inventory-20261109` based on `main`.
+- **Files:** `scripts/audit-dependencies.mjs`, `tests/dependency-inventory.test.mjs`, `.github/workflows/dependency-inventory.yml`, `docs/P3_10_DEPENDENCY_AUDIT.md`.
+- **Work:** Read-only static package import inventory, package-lock root-manifest consistency check, four synthetic tests, nonblocking npm advisory summary, TypeScript and Next build CI. Does not uninstall, update, upgrade, access customers, secrets or production.
+- **CI:** Initial GitHub run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42595244794 FAILED at inventory because a deliberately fake `unlisted` import in a unit test was scanned as a real dependency. Fixed by excluding synthetic test fixtures from production import inventory. Unit tests and inventory passed in https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42595310178; npm install, audit, typecheck and build were still in progress when first checked. Latest head `5803ea46` CI result must be verified separately.
+- **How to verify:** Review draft PR, run `node --test tests/dependency-inventory.test.mjs`, `node scripts/audit-dependencies.mjs`, `npm ci`, `npx tsc --noEmit`, `npm run build` in a safe environment. Check GitHub Actions on the final head. Treat candidate packages as review-only; inspect package licences and hosting terms manually before commercial launch.
+- **Status:** P3-10a implementation and CI attempt complete; full P3-10 remains open, no production or functional claims.
