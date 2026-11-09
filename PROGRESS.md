@@ -313,3 +313,13 @@
 - **How to verify:** Only in approved staging, configure server-only key plus shared Redis guard (never put in GitHub), run synthetic two-tenant RLS tests and anon-key direct API denial, then test valid/invalid public enquiries and error/duplicate scenarios.
 - **Status:** Draft code/tests/build complete; live RLS fix and integration remain approval-gated. Parent P0-05 still OPEN.
 
+## P0-05 live RLS follow-up — founder's manual change verified (2026-11-09)
+- **Supabase project:** `pqzawjeggyxarwdkdynz` `ACTIVE_HEALTHY`; `public.clients` and `public.leads` now have `relrowsecurity=true` via founder's action, as read-only verified.
+- **Security Advisor:** Previous disabled-RLS errors cleared. Still INFO `rls_enabled_no_policy` for `clients`, WARN leaked password protection disabled.
+- **Permissions:** `anon` and `authenticated` continue to have SELECT/INSERT/UPDATE/DELETE and TRUNCATE table grants. Read-only `has_table_privilege` confirmed TRUNCATE on both tables for both roles. RLS does not protect TRUNCATE. Restrict grants in an approved coordinated step.
+- **Policies:** `clients` has NO policies; owner dashboard's `clients.slug` lookup cannot work for ordinary authenticated users. `leads` has only SELECT and INSERT with `auth.uid()=user_id`, so anonymous form inserts (without user_id), UPDATE and DELETE lack authorization policies.
+- **Aggregates:** 7 clients, 94 leads; 43 leads with NULL user_id remain outside existing owner-ID SELECT policy. No personally identifying records accessed.
+- **Tracking/PR:** Security blocker log and [PR #40](https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/40) release plan updated to distinguish historical RLS-OFF findings from current RLS-ON state.
+- **No changes** to live SQL, grants, data, secrets or production deployment from assistant. No end-to-end owner/anonymous flow test was claimed.
+- **Status:** RLS toggles complete, functional tenant policies and privilege reduction remain **OPEN**; do not mark the full P0-05 resolved.
+
