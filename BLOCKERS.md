@@ -57,3 +57,14 @@ Keep every PR in Draft; read-only investigation and source changes to a new bran
 - **Release dependency:** Proposed least-privilege/RLS SQL in draft PR #40 deliberately fails current preflight and is not applied. Merging it without validated public-form server-only submission will stop direct anonymous intake. Choose a reviewed, backup-backed containment strategy and a staging security test plan before live SQL.
 - **Founder production approval needed:** Either explicitly accept short dashboard/form downtime for an emergency RLS + revoke-all containment, or approve a coordinated staged cutover after private data reconciliation. The assistant has NOT performed either live mutation.
 - **Auth hardening:** Supabase Security Advisor warns that leaked-password protection is disabled; review Auth settings separately from P0 RLS.
+
+## 2026-11-09 follow-up — founder has enabled RLS (verified read-only)
+
+- **B-01 partially improved, NOT resolved:** `public.clients` and `public.leads` now both have `relrowsecurity = true`, and the project's status is `ACTIVE_HEALTHY`. The historical RLS-OFF entries above are previous snapshots and must not be interpreted as today's state.
+- **Critical non-row-scoped privilege issue remains:** `anon` and `authenticated` still have `TRUNCATE` permission on BOTH tables (confirmed by `has_table_privilege`). RLS does not control table-wide TRUNCATE; normal PostgREST API operations do not imply direct TRUNCATE access, but grants must be restricted in a reviewed production operation.
+- **Owner dashboard currently blocked:** `clients` has zero SELECT policies under RLS; normal authenticated queries to `clients.slug` will not return a business profile. Do not add a permissive `USING (true)` policy.
+- **Public form currently blocked:** public form inserts have NULL `user_id`; existing `leads` INSERT policy requires `auth.uid() = user_id`; no anonymous public insert policy. Server-only protected submission exists only in draft PR #41, not production.
+- **Lead updates/deletes blocked:** there are no UPDATE/DELETE policies. Existing 43 leads with NULL `user_id` will be invisible to the historic direct user-ID SELECT policy until a secure business owner mapping is implemented.
+- **Security Advisor improved:** previously reported disabled-RLS errors cleared. Remaining: `rls_enabled_no_policy` (clients, INFO), leaked password protection disabled (WARN).
+- **Production decision still required:** restrict non-row-scoped grants, stage Auth-linked owner policies, safely reconcile unmatched business and legacy leads, test public submission with approved rate limiter, and run two-business authorization tests. Do NOT enable wide-open anon policies.
+- No live SQL writes or schema changes were performed by the assistant in this recheck.
