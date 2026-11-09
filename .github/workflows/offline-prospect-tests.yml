@@ -1,0 +1,19 @@
+name: Offline prospect qualifier tests
+on:
+  pull_request:
+    paths:
+      - 'scripts/qualify-prospects.mjs'
+      - 'tests/qualify-prospects.test.mjs'
+      - 'docs/OFFLINE_PROSPECT_QUALIFIER.md'
+      - '.github/workflows/offline-prospect-tests.yml'
+  workflow_dispatch:
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Synthetic offline tests (no credentials or network requests)
+        run: node --test tests/qualify-prospects.test.mjs
