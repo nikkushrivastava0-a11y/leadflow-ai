@@ -41,5 +41,7 @@ jobs:
             tests/auth-callback-origin.test.mjs
       - name: Typecheck
         run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
       - name: Next 16 production compile
         run: npm run build
