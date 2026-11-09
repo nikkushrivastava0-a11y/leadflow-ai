@@ -21,6 +21,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [x] **P0-03a** Implement and test checkout/webhook HMAC authenticity primitives (partial; P0-03 remains blocked).
 - [x] **P0-04** Replace misleading browser-only payment-success toast with verified server confirmation.
 - [ ] **P0-05** Restore connected Supabase availability and inspect actual `leads`/`clients` schema, RLS and privileges.
+- [x] **P0-05a** Confirm ACTIVE_HEALTHY and complete read-only schema/RLS/role-grants integrity audit; propose staged remediation (PR #40). **P0-05 still open until live RLS verified.**
 - [x] **P0-06** Resolve mismatch between manual `user_id` lead writes and dashboard `client_slug` queries.
 - [x] **P0-07** Validate public form fields and ensure submitted slug belongs to a real client before insert.
 - [x] **P0-08** Add genuine request throttling, spam resistance and duplicate handling to public enquiry path.
