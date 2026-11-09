@@ -41,3 +41,14 @@ View the GitHub Actions synthetic RLS job, check exact assertions, and confirm t
 Official references:
 - https://supabase.com/docs/guides/database/postgres/row-level-security
 - https://supabase.com/docs/guides/api/securing-your-api
+
+## Adversarial conflict regression — discovered and fixed
+
+Initial synthetic tests passed because every lead had consistent owner IDs. We added a synthetic lead with a **business B slug but user_id of owner A**. This revealed a cross-tenant flaw in the original *unmerged proposal*.
+
+The original SELECT policy permitted fallback when `NOT EXISTS (SELECT 1 FROM public.clients WHERE slug=leads.client_slug)`. Under `clients` RLS, owner A cannot see business B, so that EXISTS query evaluated false even though B actually exists. The fallback then exposed B's row to A when `user_id=A`.
+
+**Reproduced:** The added regression failed with `expected=0 actual=1`. **Fixed:** legacy `user_id` fallback is now permitted only for rows with `client_slug IS NULL`, not orphan or unseen slugs. A migration preflight rejects a valid `user_id` conflicting with a verified business slug. The revised isolated test passed.
+
+The correction is now also present in the parent draft migration (PR #40). No production SQL was run. Any genuine orphan-slug rows are deliberately hidden until an administrator privately resolves ownership.
+
