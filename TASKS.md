@@ -35,6 +35,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [ ] **P1-03** Lead qualification pipeline consistent for public and manual leads.
 - [ ] **P1-04** Ethical local lead-finder research assistant using publicly available business information; no mass scraping or unsolicited auto-send.
 - [x] **P1-04a** Research 13 verifiable public Greater Noida coaching businesses for founder-reviewed discovery (subtask only, no automated lead finder).
+- [x] **P1-04b** Offline public-business qualification prototype and synthetic test workflow (draft PR #38; full P1-04 remains open).
 - [ ] **P1-05** Focused coaching-centre landing/site generator prototype based on real approved copy.
 - [ ] **P1-06** Contextual pitch-writer that outputs drafts for human approval.
 - [x] **P1-06a** Working local no-send WhatsApp/LinkedIn/email pitch composer with verified-fact input and tests (customer-facing UI remains open).
