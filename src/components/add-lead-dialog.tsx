@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { addLead } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 
 export function AddLeadDialog() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -31,20 +33,26 @@ export function AddLeadDialog() {
     e.preventDefault();
     setLoading(true);
 
-    const result = await addLead(form);
+    try {
+      const result = await addLead(form);
 
-    if (result?.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Lead added successfully!");
-      setForm({ name: "", email: "", phone: "", source: "manual", notes: "" });
-      setOpen(false);
+      if (result?.success === true) {
+        toast.success("Lead added.");
+        setForm({ name: "", email: "", phone: "", source: "manual", notes: "" });
+        setOpen(false);
+        router.refresh();
+      } else {
+        toast.error(result?.error || "Lead creation was not confirmed.");
+      }
+    } catch {
+      toast.error("Lead creation could not be confirmed. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!loading) setOpen(nextOpen); }}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
