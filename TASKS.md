@@ -21,6 +21,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [x] **P0-03a** Implement and test checkout/webhook HMAC authenticity primitives (partial; P0-03 remains blocked).
 - [x] **P0-04** Replace misleading browser-only payment-success toast with verified server confirmation.
 - [ ] **P0-05** Restore connected Supabase availability and inspect actual `leads`/`clients` schema, RLS and privileges.
+- [x] **P0-14a** Consolidate P0 backend draft (owner-scoped CRM CRUD, protected form, privacy-safe scoring, auth and payment lock) with offline CI/typecheck/lint/build; PR #49, NOT deployed.
 - [x] **P0-05d** Add two-synthetic-owner regression harness for draft RLS policy migration (PR #43; no live schema mutation).
 - [x] **P0-05c** Draft and test least-privilege removal of TRUNCATE/TRIGGER/REFERENCES from anon/authenticated (PR #42, only simulated Postgres; not applied live).
 - [x] **P0-05b** Draft protected server-only public form writer; mocked guard/secret tests, typecheck and preview build passed (PR #41; NOT production-enabled).
