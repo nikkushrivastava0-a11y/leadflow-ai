@@ -44,7 +44,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [x] **P1-05a** Local-only coaching landing draft HTML generator with allowlisted owner-approved fields and synthetic CI (draft PR #39; P1-05 remains open).
 - [ ] **P1-06** Contextual pitch-writer that outputs drafts for human approval.
 - [x] **P1-06a** Working local no-send WhatsApp/LinkedIn/email pitch composer with verified-fact input and tests (customer-facing UI remains open).
-- [ ] **P1-07** CRM search, filters, sorting and pagination.
+- [x] **P1-07** CRM search, status filtering, sorting and client-side pagination (draft PR #44; CI passed, browser and RLS QA pending).
 - [ ] **P1-08** QR/link-sharing for an individual business enquiry form.
 - [x] **P1-08a** Add manual copy-to-clipboard control with accessible feedback on owner dashboard (draft PR #37; QR and domain QA remain open).
 - [ ] **P1-09** Safe UPI/checkout flow and invoicing plan with reconciled paid activation.
