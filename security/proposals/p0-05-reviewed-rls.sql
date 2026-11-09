@@ -1,10 +1,11 @@
 -- PROPOSAL ONLY — DO NOT APPLY TO PRODUCTION.
 -- P0-05: RLS + minimum privileges for EXISTING LeadFlow AI tables.
 --
--- LIVE AUDIT 2026-11-09 (aggregate only):
---   7 clients, 94 leads; both tables RLS OFF and broadly granted to anon.
---   1 client has no confirmed Auth match; 38 leads have neither a verified
---   business owner nor a valid Auth user. This migration WILL ABORT today.
+-- HISTORY: Initial 2026-11-09 audit found RLS OFF. The founder subsequently
+-- ENABLED RLS on both tables. The current situation still has broad grants,
+-- insufficient owner policies and 7 clients/94 leads. One client has no
+-- confirmed Auth match; 38 leads have neither a verified business owner nor
+-- a valid Auth user. This migration MUST ABORT until privately reconciled.
 --
 -- Prerequisites BEFORE running in a disposable staging clone:
 --   1) Human review and resolve unmatched owner/ambiguous legacy leads.
@@ -99,8 +100,8 @@ CREATE UNIQUE INDEX clients_owner_user_id_uniq
 CREATE INDEX leads_client_slug_idx ON public.leads (client_slug);
 CREATE INDEX leads_user_id_idx ON public.leads (user_id);
 
--- Old policies exist but are currently INACTIVE because RLS is disabled.
--- Replace rather than combine permissive rules during activation.
+-- Historic policies remain active now that RLS is enabled, but do not match
+-- the business ownership model. Replace only after coordinated approval.
 DROP POLICY IF EXISTS "Users can insert their own leads" ON public.leads;
 DROP POLICY IF EXISTS "Users can view their own leads" ON public.leads;
 
