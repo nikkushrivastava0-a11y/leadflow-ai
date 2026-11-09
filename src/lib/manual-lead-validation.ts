@@ -1,4 +1,4 @@
-import { LEAD_SOURCES, LEAD_STATUSES } from "./types";
+import { LEAD_SOURCES, LEAD_STATUSES } from "./types.ts";
 
 type ManualLeadFields = {
   name: string;
