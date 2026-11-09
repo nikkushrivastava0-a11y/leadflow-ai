@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicSubmissionClient } from "@/lib/server/public-submission-client";
 import { notFound, redirect } from "next/navigation";
 import { isValidBusinessSlug, validatePublicLead } from "@/lib/public-leads";
 import { reservePublicLeadSubmission } from "@/lib/server/public-lead-guard";
@@ -75,31 +75,19 @@ export default async function DynamicLeadForm(props: {
     );
   }
 
-  // Submit Logic (Bina kisi login check ke)
+  // Public action: validated input, shared rate guard, server-only DB writer.
   async function submitLead(formData: FormData) {
     "use server";
-    const supabase = await createClient();
-    
     const validated = validatePublicLead(formData);
     if (!validated.ok) {
-      redirect(`/form/${encodeURIComponent(slug)}?error=invalid`);
-    }
-
-    // Fail closed for unknown clients. The public SELECT policy for safe
-    // slug lookup must be verified with RLS before releasing this change.
-    const { data: registeredClient, error: clientError } = await supabase
-      .from("clients")
-      .select("slug")
-      .eq("slug", slug)
-      .maybeSingle();
-
-    if (clientError || !registeredClient) {
-      console.error("Public form client lookup unavailable");
-      redirect(`/form/${encodeURIComponent(slug)}?error=business`);
+      redirect("/form/" + encodeURIComponent(slug) + "?error=invalid");
     }
 
     const { name, email, phone } = validated.value;
 
+    // An anonymous browser key must NOT be able to insert straight into
+    // public.leads after RLS hardening. Enforce the Redis guard before using
+    // an elevated server-only Supabase secret key.
     const reservation = await reservePublicLeadSubmission({
       slug,
       name,
@@ -114,6 +102,32 @@ export default async function DynamicLeadForm(props: {
         reservation.reason === "duplicate" ? "duplicate" :
         reservation.reason === "spam" ? "invalid" : "guard";
       redirect("/form/" + encodeURIComponent(slug) + "?error=" + errorState);
+    }
+
+    const supabase = createPublicSubmissionClient();
+    if (!supabase) {
+      await reservation.release();
+      redirect("/form/" + encodeURIComponent(slug) + "?error=guard");
+    }
+
+    // Only the verified business slug, never owner_email or private client
+    // fields, is returned. A failure releases the reservation for retry.
+    let businessExists = false;
+    try {
+      const { data: registeredClient, error: clientError } = await supabase
+        .from("clients")
+        .select("slug")
+        .eq("slug", slug)
+        .maybeSingle();
+
+      businessExists = !clientError && Boolean(registeredClient?.slug);
+    } catch {
+      console.error("Public form business lookup failed");
+    }
+
+    if (!businessExists) {
+      await reservation.release();
+      redirect("/form/" + encodeURIComponent(slug) + "?error=business");
     }
 
     // The reservation prevents rapid duplicates during a DB write.
