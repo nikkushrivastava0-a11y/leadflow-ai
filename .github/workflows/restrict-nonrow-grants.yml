@@ -1,0 +1,57 @@
+name: P0-05c non-row-grant review and isolated Postgres test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [security/p0-05c-revoke-excess-grants-20261109]
+
+permissions:
+  contents: read
+
+jobs:
+  privilege-revoke-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: postgres
+      PGPASSWORD: synthetic-ci-only
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-build-only-key
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: rzp_test_placeholder
+      RAZORPAY_KEY_SECRET: fake-build-secret-never-used
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Postgres integration test (ephemeral container ONLY)
+        run: |
+          psql --version
+          bash security/tests/p0-05c-grant-integration.sh
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install exact dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Next.js build with synthetic variables
+        run: npm run build
