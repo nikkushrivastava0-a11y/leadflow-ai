@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { Lead } from "@/lib/types";
 import { deleteLead } from "@/lib/actions";
 import {
@@ -39,12 +41,28 @@ function scoreColor(score: number) {
 }
 
 export function LeadsTable({ leads }: { leads: Lead[] }) {
-  async function handleDelete(id: string) {
-    const result = await deleteLead(id);
-    if (result?.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Lead deleted");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function handleDelete(id: string, displayName: string) {
+    if (deletingId) return;
+
+    // A destructive action must require explicit human confirmation.
+    if (!window.confirm(`Permanently delete ${displayName}'s lead? This cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingId(id);
+    try {
+      const result = await deleteLead(id);
+      if (result?.success === true) {
+        toast.success("Lead deleted");
+      } else {
+        toast.error(result?.error || "Lead deletion was not confirmed.");
+      }
+    } catch {
+      toast.error("Lead deletion could not be confirmed. Please try again.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -94,7 +112,9 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleDelete(lead.id)}
+                  onClick={() => handleDelete(lead.id, lead.name)}
+                  aria-label={`Delete lead ${lead.name}`}
+                  disabled={deletingId !== null}
                 >
                   <Trash2 className="h-4 w-4 text-red-500" />
                 </Button>
