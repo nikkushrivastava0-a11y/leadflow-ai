@@ -45,3 +45,9 @@ test("reviewed proposal isn't in auto-applied migrations directory", () => {
   assert.match(script, /DO NOT APPLY TO PRODUCTION/);
   assert.doesNotMatch(script, /\b(?:DROP TABLE|TRUNCATE TABLE|DELETE FROM public\.leads)\b/i);
 });
+
+test("owner fallbacks cannot treat other RLS-hidden business slugs as missing", () => {
+  assert.match(script, /AND client_slug IS NULL/);
+  assert.match(script, /Conflicting lead owner and business slug/);
+  assert.doesNotMatch(script, /OR NOT EXISTS\s*\(\s*SELECT 1 FROM public\.clients/);
+});
