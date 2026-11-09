@@ -48,3 +48,5 @@ Keep every PR in Draft; read-only investigation and source changes to a new bran
 - **B-16 / P1-04b — Offline prospect verification gate:** Draft PR #38 accepts founder-supplied public business records but does not independently establish their truth, source ownership, outreach permissions or business relevance. Synthetic Actions run 42540236679 was in progress at initial review. Human fact checking and explicit approval required before any outreach; parent P1-04 remains open.
 
 - **B-16 CI follow-up:** Synthetic Actions run 42540236679 completed SUCCESS; independent source verification and outreach permission remain unresolved.
+
+- **B-17 / P1-05a — Offline site prototype not a publishable website:** PR #39 produces local noindex HTML only. GitHub synthetic workflow and browser QA need confirmation; actual business identity, course descriptions, domain ownership, privacy notice, accessibility and contact destination require founder approval before publication. No customer-facing deployment or live lead capture is implemented.
