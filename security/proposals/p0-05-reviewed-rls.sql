@@ -52,6 +52,21 @@ BEGIN
     RAISE EXCEPTION 'Ambiguous legacy leads: reconcile ownership without guessing';
   END IF;
 
+  -- If a valid UUID and verified business slug disagree, migration must
+  -- not guess ownership. Such records need private manual reconciliation.
+  IF EXISTS (
+    SELECT 1 FROM public.leads l
+    JOIN public.clients c ON c.slug = l.client_slug
+    JOIN auth.users verified_owner
+      ON lower(trim(verified_owner.email)) = lower(trim(c.owner_email))
+     AND verified_owner.email_confirmed_at IS NOT NULL
+    WHERE l.user_id IS NOT NULL
+      AND l.user_id <> verified_owner.id
+      AND EXISTS (SELECT 1 FROM auth.users valid_user WHERE valid_user.id=l.user_id)
+  ) THEN
+    RAISE EXCEPTION 'Conflicting lead owner and business slug: private review required';
+  END IF;
+
   IF EXISTS (
     SELECT 1 FROM pg_policies p
     WHERE p.schemaname='public'
@@ -118,10 +133,11 @@ GRANT INSERT (
 GRANT UPDATE (status, updated_at) ON TABLE public.leads TO authenticated;
 GRANT DELETE ON TABLE public.leads TO authenticated;
 
--- Authorize by verified business slug when one exists, or allow
--- user_id fallback ONLY for legacy rows with no valid business slug.
--- This preserves direct ownership of some legacy rows without trusting an
--- incorrect slug that points to a different tenant.
+-- Authorize by verified business slug when present.
+-- Legacy user_id fallback is allowed ONLY when client_slug is NULL.
+-- Do not use NOT EXISTS on clients for a non-null orphan slug here:
+-- clients RLS filters other businesses from view, so NOT EXISTS could be
+-- TRUE for a different tenant and leak their row to a conflicting user_id.
 CREATE POLICY leads_owner_select
   ON public.leads FOR SELECT TO authenticated
   USING (
@@ -136,12 +152,7 @@ CREATE POLICY leads_owner_select
     OR
     (
       user_id = (SELECT auth.uid())
-      AND (
-        client_slug IS NULL
-        OR NOT EXISTS (
-          SELECT 1 FROM public.clients c2 WHERE c2.slug = leads.client_slug
-        )
-      )
+      AND client_slug IS NULL
     )
   );
 
