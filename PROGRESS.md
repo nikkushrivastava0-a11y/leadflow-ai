@@ -281,3 +281,12 @@
 - **Status:** P1-04b implementation in draft PR; parent P1-04 remains open. No production/main/customer/payment/outreach actions.
 
 - **CI follow-up:** GitHub Actions run https://github.com/nikkushrivastava0-a11y/leadflow-ai/actions/runs/42540236679 completed **SUCCESS** (synthetic Node test workflow). This is not a full Next.js build, Vercel preview or real-world business validation.
+
+
+## 2026-11-09 — P1-05a offline coaching site draft generator
+- **Draft PR:** https://github.com/nikkushrivastava0-a11y/leadflow-ai/pull/39 (base main; independent branch feature/p1-05a-offline-coaching-site-copy-20261109).
+- **Files:** scripts/coaching-site-generator.cjs; tests/coaching-site-generator.test.cjs; docs/COACHING_SITE_PROTOTYPE.md; .github/workflows/coaching-site-tests.yml.
+- **Implementation:** local-only generator with field allowlist, HTML escaping, HTTPS contact-link validation, noindex metadata, explicit owner approval; refuses to overwrite existing files. No network calls, CRM integration, publishing or claims about outcomes.
+- **Verification:** GitHub confirmed branch, four commits and draft PR. Synthetic Node test workflow was added; result pending at initial log. No local npm dependencies available to execute repository build. No functional browser/mobile test or Vercel build verified. A green workflow, if obtained, proves only synthetic generator tests.
+- **How to verify:** Run `node --test tests/coaching-site-generator.test.cjs`; generate a draft with synthetic JSON using docs instructions, inspect escaped content and noindex; owner must approve business facts and contact URL before publication.
+- **Status:** P1-05a implementation PR created; parent P1-05 remains open (no in-app builder or live domain).
