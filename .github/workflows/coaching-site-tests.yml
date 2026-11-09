@@ -1,0 +1,19 @@
+name: Offline coaching site tests
+on:
+  push:
+    branches:
+      - feature/p1-05a-offline-coaching-site-copy-20261109
+  pull_request:
+    paths:
+      - 'scripts/coaching-site-generator.cjs'
+      - 'tests/coaching-site-generator.test.cjs'
+      - '.github/workflows/coaching-site-tests.yml'
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/coaching-site-generator.test.cjs
