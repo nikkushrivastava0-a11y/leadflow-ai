@@ -53,8 +53,6 @@ export default async function DashboardPage() {
   const hotLeads = leads.filter((l) => (l.score || 0) >= 70).length;
   const wonLeads = leads.filter((l) => l.status === "won").length;
 
-  const formLink = `https://leadflow-ai-flame.vercel.app/form/${client.slug}`;
-
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="flex items-center justify-between border-b bg-white px-6 py-4">
