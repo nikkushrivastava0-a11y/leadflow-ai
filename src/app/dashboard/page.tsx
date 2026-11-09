@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@/lib/supabase/server";
+import { resolveOwnerScope, ownerScopeMessage } from "@/lib/server/owner-scope";
 import { LogoutButton } from "@/components/logout-button";
 import { AddLeadDialog } from "@/components/add-lead-dialog";
 import { LeadsTable } from "@/components/leads-table";
@@ -8,39 +8,45 @@ import { UpgradeButton } from "@/components/upgrade-button";
 import { Lead } from "@/lib/types";
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  
-  // 1. Logged-in user ka data
-  const { data: { user } } = await supabase.auth.getUser();
+  const scope = await resolveOwnerScope();
 
-  if (!user?.email) {
-    return <div className="p-8 text-center">Please log in to access dashboard.</div>;
+  if (!scope.ok) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-3 px-6">
+        <h1 className="text-2xl font-semibold text-slate-900">Workspace access pending</h1>
+        <p className="text-slate-700">{ownerScopeMessage(scope.reason)}</p>
+        <p className="text-sm text-slate-500">
+          A verified login is not the same as an approved business workspace.
+          Your existing enquiries have not been deleted.
+        </p>
+      </main>
+    );
   }
 
-  // ==================== SECURITY FIX: CLIENT SLUG FETCH ====================
-  const { data: client, error: clientError } = await supabase
-    .from('clients')
-    .select('slug')
-    .eq('owner_email', user.email)
-    .single();
-
-  if (clientError || !client?.slug) {
-    console.error("Client not found:", clientError);
-    return <div className="p-8 text-center text-red-600">Client profile not found. Make sure your email is in the 'clients' table.</div>;
-  }
-
-  // ==================== SECURITY FIX: FILTER LEADS BY SLUG ====================
-  const { data: directLeads, error: leadsError } = await supabase
-    .from('leads')
-    .select('*')
-    .eq('client_slug', client.slug) // <-- YE WALI LINE AB TUMHARA DATA SECURE KAREGI
-    .order('created_at', { ascending: false });
+  const { data: directLeads, error: leadsError } = await scope.supabase
+    .from("leads")
+    .select("*")
+    .or(
+      `client_slug.eq.${scope.slug},and(client_slug.is.null,user_id.eq.${scope.userId})`
+    )
+    .order("created_at", { ascending: false });
 
   if (leadsError) {
-    console.error("Leads fetch error:", leadsError);
+    console.error("Owner dashboard load failed:", leadsError.code || "unknown");
+    return (
+      <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-3 px-6">
+        <h1 className="text-2xl font-semibold text-slate-900">Leads unavailable</h1>
+        <p className="text-slate-700">
+          The dashboard cannot verify lead access right now. Please refresh or contact support.
+        </p>
+      </main>
+    );
   }
 
   const leads = (directLeads || []) as Lead[];
+  // Show one canonical link only. Its public write path intentionally fails
+  // closed until approved Redis + secret configuration and RLS rollout exist.
+  const formLink = `https://leadflow-ai-flame.vercel.app/form/${scope.slug}`;
 
   // Stats
   const totalLeads = leads.length;
@@ -54,7 +60,7 @@ export default async function DashboardPage() {
       <header className="flex items-center justify-between border-b bg-white px-6 py-4">
         <h1 className="text-xl font-bold">LeadFlow AI</h1>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-500">{user.email}</span>
+          <span className="text-sm text-slate-500">{scope.email}</span>
           <UpgradeButton />
           <LogoutButton />
         </div>
@@ -64,10 +70,11 @@ export default async function DashboardPage() {
         
         {/* === FORM LINK SECTION === */}
         <div className="bg-white p-5 rounded-xl border shadow-sm flex flex-col gap-2">
-          <p className="text-sm text-slate-500 font-medium">Your Public Form Link (Share this with customers)</p>
+          <p className="text-sm text-slate-500 font-medium">Business enquiry link — do not share before launch approval</p>
           <code className="bg-slate-100 px-4 py-3 rounded font-mono text-indigo-600 text-sm break-all">
             {formLink}
           </code>
+          <p className="text-xs text-amber-800">Enquiry intake requires verified server security and is not yet ready for real customer submissions.</p>
         </div>
 
         {/* Stats Cards */}
