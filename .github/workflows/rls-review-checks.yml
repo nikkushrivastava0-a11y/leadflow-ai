@@ -1,0 +1,38 @@
+name: P0-05 RLS review-only plan checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [security/p0-05-live-rls-audit-20261109]
+
+permissions:
+  contents: read
+
+jobs:
+  rls-plan-review:
+    runs-on: ubuntu-latest
+    env:
+      # Synthetic build placeholders only. No database is accessed in CI.
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-build-only-key
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: rzp_test_placeholder
+      RAZORPAY_KEY_SECRET: fake-build-secret-never-used
+    steps:
+      - name: Checkout reviewed branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Verify migration approval guards (NOT real RLS tests)
+        run: node --test security/tests/p0-05-plan.test.mjs
+      - name: Install exact dependency versions
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Production compile with fake build-only env
+        run: npm run build
