@@ -75,6 +75,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [x] **P3-08** Demo playbook, discovery questionnaire, objections and follow-up flow.
 - [x] **P3-09** Weekly cash / MRR / costs scorecard based on verified figures.
 - [ ] **P3-10** Dependency audit, remove unused code and verify licence/commercial hosting.
+- [x] **P3-10a** Add conservative offline dependency/lockfile inventory, synthetic tests and report-only advisory CI (draft PR #45; parent remains open pending manual licence/hosting review and safe cleanup).
 
 ## Completion rule
 Mark a task done **only** when implementation is pushed to its own draft PR and build verification has been attempted and recorded in PROGRESS.md. Explain clearly if build passed but functional testing is still pending.
