@@ -148,7 +148,12 @@ assert_result 2 "$(query_as "$B" "SELECT count(*) FROM public.leads;")" "owner B
 assert_result 0 "$(query_as "$A" "SELECT count(*) FROM public.leads WHERE client_slug='business-b';")" "A cannot view B"
 assert_result 0 "$(query_as "$B" "SELECT count(*) FROM public.leads WHERE client_slug='business-a';")" "B cannot view A"
 
-echo "8. Row status actions work for own lead, not the other owner"
+echo "8. Conflicting owner UUID must NEVER reveal another business slug"
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.leads (id,user_id,client_slug,name) VALUES ('dddddddd-dddd-dddd-dddd-ddddddddddd1','$A','business-b','Conflicted synthetic lead');" >/dev/null
+assert_result 0 "$(query_as "$A" "SELECT count(*) FROM public.leads WHERE id='dddddddd-dddd-dddd-dddd-ddddddddddd1';")" "A cannot see B slug even if row user_id names A"
+assert_result 1 "$(query_as "$B" "SELECT count(*) FROM public.leads WHERE id='dddddddd-dddd-dddd-dddd-ddddddddddd1';")" "B slug owner can see this row"
+
+echo "9. Row status actions work for own lead, not the other owner"
 assert_result 1 "$(query_as "$A" "WITH changed AS (UPDATE public.leads SET status='contacted' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1' RETURNING id) SELECT count(*) FROM changed;")" "A update own status"
 assert_result 0 "$(query_as "$A" "WITH changed AS (UPDATE public.leads SET status='contacted' WHERE id='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1' RETURNING id) SELECT count(*) FROM changed;")" "A cannot update B"
 assert_result 0 "$(query_as "$B" "WITH changed AS (DELETE FROM public.leads WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1' RETURNING id) SELECT count(*) FROM changed;")" "B cannot delete A"
