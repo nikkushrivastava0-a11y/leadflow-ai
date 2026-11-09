@@ -32,6 +32,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [x] **P0-10** Remove hard-coded retired Gemini model; configure an actually available model with timeouts.
 - [x] **P0-11** Model scoring: schema validation, prompt-injection isolation and truthful unavailable state.
 - [x] **P0-12** Add basic PR checks and verify builds and deployment preview gate.
+- [x] **P0-13** Require explicit confirmation and one returned deleted row before claiming lead deletion (draft PR #48; tests/build passed; production RLS DELETE still blocked).
 
 ## P1 — revenue-producing product features
 - [x] **P1-01** Inline editable CRM lead stage with success/error feedback.
@@ -50,6 +51,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [ ] **P1-09** Safe UPI/checkout flow and invoicing plan with reconciled paid activation.
 - [x] **P1-10** Synthetic, believable coaching-centre sales demo (no fake proof).
 - [ ] **P1-11** Verified owner onboarding and automatic client profile provisioning.
+- [x] **P1-11a** Show honest pending-email-verification signup state and require a session before dashboard redirect (draft PR #47; full provisioning remains open).
 
 ## P2 — design quality, SEO, mobile, observability
 - [ ] **P2-01** Audit Agent Studio PR #10 with 3D usability and real browser checks; do not merge unverified visuals.
@@ -58,6 +60,7 @@ Workflow: one **independent draft PR per implementation task**, no production/ma
 - [ ] **P2-04** Meaningful titles/descriptions, sitemap, robots and truthful social preview.
 - [x] **P2-04a** Replace starter metadata, generate public-only sitemap/robots, noindex private pages (social image and browser QA pending).
 - [ ] **P2-05** Verify HTTPS/deployment domains; enforce safe redirect policy.
+- [x] **P2-05a** Restrict auth callback redirect origins, require valid PKCE session, and add failed-code page (draft PR #46; tests/build green; live domain QA pending).
 - [ ] **P2-06** Privacy-respecting conversion analytics and consent handling.
 - [ ] **P2-07** Accessibility and keyboard checks, contrast and reduced motion.
 - [ ] **P2-08** Form trust details, privacy policy, FAQ, realistic copy, no fake testimonials.
