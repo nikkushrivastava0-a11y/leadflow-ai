@@ -50,3 +50,10 @@ Keep every PR in Draft; read-only investigation and source changes to a new bran
 - **B-16 CI follow-up:** Synthetic Actions run 42540236679 completed SUCCESS; independent source verification and outreach permission remain unresolved.
 
 - **B-17 / P1-05a — Offline site prototype not a publishable website:** PR #39 produces local noindex HTML only. GitHub synthetic workflow and browser QA need confirmation; actual business identity, course descriptions, domain ownership, privacy notice, accessibility and contact destination require founder approval before publication. No customer-facing deployment or live lead capture is implemented.
+
+## 2026-11-09 security incident follow-up — verified live
+- **P0 / CRITICAL: Real exposed data with RLS OFF.** Supabase project is now ACTIVE_HEALTHY and holds actual business/lead records. `clients` and `leads` RLS OFF + broad `anon` grants; advisor ERROR. Existing policies are not enforced. Do **not** onboard, advertise public forms, or describe the app as secure. This is an active data-exposure risk until verified containment.
+- **Legacy mapping blocker:** At least one business lacks a confirmed Auth identity and 38 legacy leads lack either an identified confirmed business owner or valid Auth user UUID. Do not guess, mass-delete or automatically reassign these records. Keep reconciliation private and human-reviewed.
+- **Release dependency:** Proposed least-privilege/RLS SQL in draft PR #40 deliberately fails current preflight and is not applied. Merging it without validated public-form server-only submission will stop direct anonymous intake. Choose a reviewed, backup-backed containment strategy and a staging security test plan before live SQL.
+- **Founder production approval needed:** Either explicitly accept short dashboard/form downtime for an emergency RLS + revoke-all containment, or approve a coordinated staged cutover after private data reconciliation. The assistant has NOT performed either live mutation.
+- **Auth hardening:** Supabase Security Advisor warns that leaked-password protection is disabled; review Auth settings separately from P0 RLS.
