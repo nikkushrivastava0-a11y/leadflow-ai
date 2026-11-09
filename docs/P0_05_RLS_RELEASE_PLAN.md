@@ -17,6 +17,15 @@ However, this is **not** a complete or verified tenant-security release:
 
 **Immediate priorities:** (1) review/restrict non-row-scoped grants, especially `TRUNCATE`, with an approved SQL change; (2) stage an Auth-linked owner policy and private reconciliation of legacy records; (3) ensure protected form submission is wired and tested; (4) run two-business authorized/anonymous smoke tests. **Do not run the below SQL proposal blindly:** it still aborts on unmatched business and unowned legacy records, and current source code is not ready for its privilege changes.
 
+
+### Corrected cross-tenant fallback after adversarial CI (2026-11-09)
+
+A synthetic two-owner test in stacked PR #43 exposed a **draft policy vulnerability** before deployment. The initial proposal treated `NOT EXISTS (SELECT FROM clients WHERE slug=...)` as proof that a non-NULL slug did not belong to any business. This was incorrect under owner-filtered `clients` RLS: a different business was invisible to the caller, making `NOT EXISTS` true. Combined with an inconsistent `user_id`, it could expose another business's lead.
+
+The proposal is now changed: `user_id` fallback applies **only when `leads.client_slug IS NULL`**. A migration preflight also fails when a valid `user_id` conflicts with the verified owner of a non-NULL business slug. Orphan-slug rows remain hidden until privately reconciled, rather than guessing.
+
+The test initially failed `expected=0 actual=1` and subsequently passed after this correction; see PR #43 CI. The issue was in an unmerged migration proposal, not a policy executed against production.
+
 ### Historical baseline — captured before the founder enabled RLS
 
 ## Live observations (2026-11-09, read-only; historical RLS-OFF snapshot)
