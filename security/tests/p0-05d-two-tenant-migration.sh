@@ -240,6 +240,20 @@ echo "6a. The approved synthetic migration satisfies both read-only release gate
 gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
 assert_result "PASS|PASS" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "synthetic migration passes hardened policy gate"
 
+echo "6c. Any anonymous column-level UPDATE grant must block release"
+psql -X -v ON_ERROR_STOP=1 -c "GRANT UPDATE (status) ON TABLE public.leads TO anon;" >/dev/null
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|BLOCKED" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "anon column grant blocks deployment"
+psql -X -v ON_ERROR_STOP=1 -c "REVOKE UPDATE (status) ON TABLE public.leads FROM anon;" >/dev/null
+
+echo "6d. Anonymous TRUNCATE grant also blocks release"
+psql -X -v ON_ERROR_STOP=1 -c "GRANT TRUNCATE ON TABLE public.leads TO anon;" >/dev/null
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|BLOCKED" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "anon TRUNCATE grant blocks deployment"
+psql -X -v ON_ERROR_STOP=1 -c "REVOKE TRUNCATE ON TABLE public.leads FROM anon;" >/dev/null
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|PASS" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "revocation restores hardened release gate"
+
 echo "6. Anonymous cannot read private business/lead data"
 if psql -X -qAt -v ON_ERROR_STOP=1 -c "SET ROLE anon; select count(*) from public.clients;" >/dev/null 2>&1; then
   echo "FAIL: anon business SELECT permitted" >&2
