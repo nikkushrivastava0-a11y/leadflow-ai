@@ -128,6 +128,13 @@ export default async function DashboardPage() {
             <h2 className="text-xl font-semibold">Your Leads</h2>
             <AddLeadDialog />
           </div>
+          {totalLeads > leads.length ? (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+              Showing the latest {leads.length} of {totalLeads} leads. Search and filters currently
+              apply only to loaded rows. Full server-side pagination is required before relying
+              on this list for larger businesses.
+            </p>
+          ) : null}
           <LeadsTable leads={leads} />
         </div>
       </main>
