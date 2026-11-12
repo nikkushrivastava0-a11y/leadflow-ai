@@ -23,6 +23,14 @@ export default async function DashboardPage() {
     );
   }
 
+  // Exact database counts avoid reporting a truncated PostgREST page as totals.
+  const ownerFilter = `client_slug.eq.${scope.slug},and(client_slug.is.null,user_id.eq.${scope.userId})`;
+  const [totalResult, hotResult, wonResult] = await Promise.all([
+    scope.supabase.from("leads").select("id", { count: "exact", head: true }).or(ownerFilter),
+    scope.supabase.from("leads").select("id", { count: "exact", head: true }).or(ownerFilter).gte("score", 70),
+    scope.supabase.from("leads").select("id", { count: "exact", head: true }).or(ownerFilter).eq("status", "won"),
+  ]);
+
   const { data: directLeads, error: leadsError } = await scope.supabase
     .from("leads")
     .select("*")
@@ -31,7 +39,7 @@ export default async function DashboardPage() {
     )
     .order("created_at", { ascending: false });
 
-  if (leadsError) {
+  if (leadsError || totalResult.error || hotResult.error || wonResult.error) {
     console.error("Owner dashboard load failed:", leadsError.code || "unknown");
     return (
       <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-3 px-6">
@@ -66,9 +74,9 @@ export default async function DashboardPage() {
   }
 
   // Stats
-  const totalLeads = leads.length;
-  const hotLeads = leads.filter((l) => (l.score || 0) >= 70).length;
-  const wonLeads = leads.filter((l) => l.status === "won").length;
+  const totalLeads = totalResult.count ?? 0;
+  const hotLeads = hotResult.count ?? 0;
+  const wonLeads = wonResult.count ?? 0;
 
   return (
     <div className="min-h-screen bg-slate-50">
