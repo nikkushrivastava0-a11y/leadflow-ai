@@ -49,3 +49,6 @@ Final source SHA, PR, CI and preview evidence are recorded in the candidate PR d
 - Preview branch configuration verified by key metadata only: private sensitive hash, postgres provider, canonical URLs, intake=false, billing=disabled. Production variables untouched.
 - Current integrated offline/proposal tests84/84 pass; final combined CI and preview evidence are recorded in PR55 after publishing. CI also runs exact SQL/concurrency/backup/Next owner+public rehearsals in separate synthetic databases.
 - Hosted configuration is blocked on Supabase dashboard sign-in/server key; production cutover on private manifests and real backup/restore evidence; provider activation on genuine test credentials/acceptance. See BLOCKERS.md.
+
+
+CI caught two runner compatibility failures in the expanded candidate: the historical dependency-free Redis job now loaded an optional Supabase dependency, and the billing shell harness assumed ripgrep was installed. The provider import is now lazy and the shell count uses portable awk. Redis tests passed in a new directory with no node_modules, and the exact billing/atomic rehearsals passed again. The atomic late-failure injection was also corrected to preserve SQL dollar quoting, and rejection assertions now inspect ERROR lines rather than echoed statements. Final remote CI remains the release evidence in PR55.

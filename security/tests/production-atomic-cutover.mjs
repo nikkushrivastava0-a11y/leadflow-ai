@@ -15,7 +15,7 @@ const env={...process.env};
 function run(command,args,input,db=env.PGDATABASE){return execFileSync(command,args,{input,encoding:'utf8',env:{...env,PGDATABASE:db},stdio:['pipe','pipe','pipe']}).trim()}
 function sql(text,db){return run('psql',['-X','-qAt','-v','ON_ERROR_STOP=1'],text,db)}
 function reject(text,label,expected){
- try{sql(text)}catch(error){assert.ok(String(error.stderr).includes(expected),label+' failed for unexpected reason');console.log('PASS '+label);return}
+ try{sql(text)}catch(error){assert.ok(String(error.stderr).split('\n').filter(line=>line.includes('ERROR:')).some(line=>line.includes(expected)),label+' failed for unexpected reason');console.log('PASS '+label);return}
  throw new Error(label+' unexpectedly succeeded');
 }
 function pass(label){console.log('PASS '+label)}
@@ -92,7 +92,7 @@ try{
  reject(setup+approve+"UPDATE leadflow_release_receipt SET approved_commit=repeat('b',40);\n"+cutover,'different source commit rejected','Receipt commit differs');
  reject(setup+approve+"DELETE FROM leadflow_quarantine_manifest WHERE id=md5('legacy-bad-1')::uuid; INSERT INTO leadflow_quarantine_manifest VALUES(md5('good-1')::uuid,'wrong-review');\n"+cutover,'same-count substituted quarantine manifest rejected','Private manifests changed');
  reject(setup+approve+"UPDATE leadflow_release_receipt SET leads_count=93;\n"+cutover,'stale source snapshot aborts before mutation','Source changed');
- reject(setup+approve+cutover.replace(/COMMIT;\s*$/,"DO $$BEGIN RAISE EXCEPTION 'synthetic-late-failure';END$$;\nCOMMIT;"),'late failure rolls back quarantine owner schema grants and policies','synthetic-late-failure');
+ reject(setup+approve+cutover.replace(/COMMIT;\s*$/,()=>"DO $$BEGIN RAISE EXCEPTION 'synthetic-late-failure';END$$;\nCOMMIT;"),'late failure rolls back quarantine owner schema grants and policies','synthetic-late-failure');
  assert.deepEqual(fingerprint(),before);
  assert.equal(sql("SELECT count(*) FROM pg_namespace WHERE nspname='leadflow_release_backup'"),'0');
  pass('every failed cutover leaves exact original94 snapshot and schema/ACLs unchanged');

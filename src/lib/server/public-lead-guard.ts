@@ -1,5 +1,4 @@
 import { createHmac, randomUUID } from "node:crypto";
-import { createPublicSubmissionClient } from "./public-submission-client.ts";
 
 /**
  * Shared, atomic guard for anonymous server-action submissions.
@@ -135,7 +134,8 @@ export async function reservePublicLeadSubmission(input: {
   if (provider !== "redis" && provider !== "postgres") return { allowed: false, reason: "unavailable" };
   const pepper = process.env.LEAD_GUARD_HASH_SECRET;
   const cfg = provider === "redis" ? config() : null;
-  const postgres = provider === "postgres" && pepper && pepper.length >= 32 ? createPublicSubmissionClient() : null;
+  const postgres = provider === "postgres" && pepper && pepper.length >= 32
+    ? (await import("./public-submission-client.ts")).createPublicSubmissionClient() : null;
   if ((!cfg && !postgres) || !pepper || pepper.length < 32) return { allowed: false, reason: "unavailable" };
 
   const slug = input.slug.trim().toLowerCase();

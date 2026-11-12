@@ -71,7 +71,7 @@ for i in $(seq 1 12); do
  (if q "set role service_role; select public.billing_test_reserve_attempt(gen_random_uuid(),'11111111-1111-1111-1111-111111111111','synthetic-a');" >/dev/null 2>&1; then echo ok; else echo denied; fi) >"$work/limit-$i" &
 done
 wait
-[[ $(rg -l '^ok$' "$work"/limit-* | wc -l | tr -d ' ') == 7 ]]
+[[ $(awk '$0=="ok" {n++} END {print n+0}' "$work"/limit-*) == 7 ]]
 [[ $(q 'select count(*) from public.billing_test_checkout_attempts') == 10 ]]
 expect_denied "set role authenticated; select public.billing_test_reserve_attempt(gen_random_uuid(),'11111111-1111-1111-1111-111111111111','synthetic-a');" 'owner reservation RPC'
 echo 'PASS: billing SQL owner RLS, service-only writes, 12 concurrent replays, fixed expiry, collision/amount/currency/payment denials, refund tombstones, atomic rollback + retry, concurrent pre-provider throttle'
