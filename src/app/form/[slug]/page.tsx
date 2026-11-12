@@ -189,16 +189,16 @@ export default async function DynamicLeadForm(props: {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#a65d31]">Full Name</label>
-            <input required type="text" name="name" className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="John Doe" />
+            <label htmlFor="lead-name" className="mb-1 block text-sm font-medium text-[#a65d31]">Full Name</label>
+            <input required id="lead-name" type="text" name="name" autoComplete="name" maxLength={100} minLength={2} className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="John Doe" />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#a65d31]">Email Address</label>
-            <input required type="email" name="email" className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="john@example.com" />
+            <label htmlFor="lead-email" className="mb-1 block text-sm font-medium text-[#a65d31]">Email Address</label>
+            <input required id="lead-email" type="email" name="email" autoComplete="email" maxLength={254} className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="john@example.com" />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#a65d31]">Phone Number</label>
-            <input required type="tel" name="phone" className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="+91 98765 43210" />
+            <label htmlFor="lead-phone" className="mb-1 block text-sm font-medium text-[#a65d31]">Phone Number</label>
+            <input required id="lead-phone" type="tel" name="phone" autoComplete="tel" maxLength={25} className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="+91 98765 43210" />
           </div>
           <button type="submit" className="mt-4 w-full rounded-md bg-[#a65d31] p-2.5 text-white hover:bg-[#8a4b26] font-semibold transition-colors">
             Submit
