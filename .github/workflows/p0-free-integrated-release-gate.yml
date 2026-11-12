@@ -1,0 +1,67 @@
+name: Free combined backend and synthetic tenant release gate
+
+on:
+  push:
+    branches: [integration/p0-free-backend-rls-gate-20261112]
+  pull_request:
+    branches: [integration/p0-backend-core-20261109]
+
+permissions:
+  contents: read
+
+jobs:
+  free-integration-contract:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: postgres
+      PGPASSWORD: synthetic-ci-only
+      LEADFLOW_SYNTHETIC_ONLY: YES
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-build-only-key
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: rzp_test_placeholder
+      RAZORPAY_KEY_SECRET: fake-build-secret-never-used
+    steps:
+      - name: Checkout exact integration candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Synthetic 94-record two-tenant quarantine and lossless rollback
+        run: bash security/tests/p0-integration-94-record-isolation.sh
+      - name: Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked packages
+        run: npm ci
+      - name: Offline backend/CRM/form/Auth/AI safety regressions
+        run: |
+          node --experimental-strip-types --test \
+            tests/public-lead-guard.test.ts \
+            tests/public-submission-secret.test.mjs \
+            tests/manual-lead-validation.test.mjs \
+            tests/dashboard-query.test.mjs \
+            tests/gemini-privacy.test.ts \
+            tests/auth-submission-outcome.test.mjs \
+            tests/auth-callback-origin.test.mjs
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Production compile with synthetic build-only config
+        run: npm run build
