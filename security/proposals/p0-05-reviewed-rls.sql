@@ -77,6 +77,17 @@ BEGIN
     RAISE EXCEPTION 'Ambiguous legacy leads: reconcile ownership without guessing';
   END IF;
 
+  -- A non-NULL slug must resolve to a real business even if user_id is valid.
+  -- Otherwise the lead becomes invisible after RLS activates; user_id fallback
+  -- is intentionally allowed only when client_slug is NULL.
+  IF EXISTS (
+    SELECT 1 FROM public.leads l
+    LEFT JOIN public.clients c ON c.slug = l.client_slug
+    WHERE l.client_slug IS NOT NULL AND c.slug IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Orphan business slug on lead: reconcile before enabling RLS';
+  END IF;
+
   -- If a valid UUID and verified business slug disagree, migration must
   -- not guess ownership. Such records need private manual reconciliation.
   IF EXISTS (
