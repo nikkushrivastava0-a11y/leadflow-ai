@@ -139,6 +139,20 @@ if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_
 fi
 psql -X -v ON_ERROR_STOP=1 -c "delete from public.leads where id='cccccccc-cccc-cccc-cccc-ccccccccccc1';" >/dev/null
 
+echo "4b. A valid Auth UUID does not make an unknown non-NULL business slug safe"
+psql -X -v ON_ERROR_STOP=1 -c "insert into public.leads (id,user_id,client_slug,name) values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1','$A','missing-business','Orphan synthetic slug');" >/dev/null
+orphan_output=$(psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" 2>&1) && {
+  echo "FAIL: migration accepted an orphan business slug with a valid Auth owner" >&2
+  exit 1
+}
+if [[ "$orphan_output" != *"Orphan business slug on lead"* ]]; then
+  echo "FAIL: migration failed for an unexpected reason during orphan-slug test" >&2
+  exit 1
+fi
+missing=$(psql -X -qAt -v ON_ERROR_STOP=1 -c "select count(*) from information_schema.columns where table_schema='public' and table_name='clients' and column_name='owner_user_id';")
+assert_result 0 "$missing" "orphan-slug rejection leaves schema unchanged"
+psql -X -v ON_ERROR_STOP=1 -c "delete from public.leads where id='eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1';" >/dev/null
+
 echo "5. Conflicting valid owner/tenant IDs must abort before migration"
 psql -X -v ON_ERROR_STOP=1 -c "insert into public.leads (id,user_id,client_slug,name) values ('dddddddd-dddd-dddd-dddd-ddddddddddd2','$A','business-b','Conflicting owner before migration');" >/dev/null
 if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null 2>&1; then
