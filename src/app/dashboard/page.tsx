@@ -44,9 +44,26 @@ export default async function DashboardPage() {
   }
 
   const leads = (directLeads || []) as Lead[];
-  // Show one canonical link only. Its public write path intentionally fails
-  // closed until approved Redis + secret configuration and RLS rollout exist.
-  const formLink = `https://leadflow-ai-flame.vercel.app/form/${scope.slug}`;
+  // Never display a guessed deployment URL as a customer-ready enquiry link.
+  // The canonical origin must be explicitly approved in server configuration.
+  const configuredOrigin = process.env.LEADFLOW_PUBLIC_ORIGIN;
+  let formLink: string | null = null;
+  if (configuredOrigin) {
+    try {
+      const parsed = new URL(configuredOrigin);
+      if (
+        parsed.protocol === "https:" &&
+        parsed.pathname === "/" &&
+        !parsed.username && !parsed.password &&
+        !parsed.search && !parsed.hash &&
+        !parsed.port
+      ) {
+        formLink = new URL(`/form/${scope.slug}`, parsed.origin).toString();
+      }
+    } catch {
+      // Invalid or missing configuration must never produce a shareable link.
+    }
+  }
 
   // Stats
   const totalLeads = leads.length;
@@ -69,9 +86,15 @@ export default async function DashboardPage() {
         {/* === FORM LINK SECTION === */}
         <div className="bg-white p-5 rounded-xl border shadow-sm flex flex-col gap-2">
           <p className="text-sm text-slate-500 font-medium">Business enquiry link — do not share before launch approval</p>
-          <code className="bg-slate-100 px-4 py-3 rounded font-mono text-indigo-600 text-sm break-all">
-            {formLink}
-          </code>
+          {formLink ? (
+            <code className="bg-slate-100 px-4 py-3 rounded font-mono text-indigo-600 text-sm break-all">
+              {formLink}
+            </code>
+          ) : (
+            <p className="rounded bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+              Enquiry link unavailable: the approved public domain has not been configured.
+            </p>
+          )}
           <p className="text-xs text-amber-800">Enquiry intake requires verified server security and is not yet ready for real customer submissions.</p>
         </div>
 
