@@ -1,0 +1,40 @@
+name: P0-05f synthetic isolation and rollback
+on:
+  push:
+    branches:
+      - security/p0-05f-synthetic-isolation-20261112
+  pull_request:
+    branches:
+      - security/p0-05e-quarantine-readonly-20261112
+permissions:
+  contents: read
+jobs:
+  isolation:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: postgres
+      PGPASSWORD: synthetic-ci-only
+      LEADFLOW_SYNTHETIC_ONLY: YES
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run disposable PostgreSQL quarantine isolation tests
+        run: bash security/tests/p0-05f-synthetic-isolation.sh
