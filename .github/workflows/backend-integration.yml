@@ -36,6 +36,7 @@ jobs:
             tests/public-lead-guard.test.ts \
             tests/public-submission-secret.test.mjs \
             tests/manual-lead-validation.test.mjs \
+            tests/dashboard-query.test.mjs \
             tests/gemini-privacy.test.ts \
             tests/auth-submission-outcome.test.mjs \
             tests/auth-callback-origin.test.mjs
