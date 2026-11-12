@@ -174,6 +174,20 @@ if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_
 fi
 psql -X -v ON_ERROR_STOP=1 -c "delete from public.leads where id='dddddddd-dddd-dddd-dddd-ddddddddddd2';" >/dev/null
 
+echo "5b. An unknown non-NULL UUID conflicting with a valid slug must abort"
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.leads (id,user_id,client_slug,name) VALUES ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee2','99999999-9999-9999-9999-999999999999','business-a','Unknown synthetic owner');" >/dev/null
+unknown_owner_output=$(psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" 2>&1) && {
+  echo "FAIL: migration accepted a mismatched unknown Auth UUID for a valid business slug" >&2
+  exit 1
+}
+if [[ "$unknown_owner_output" != *"Conflicting lead owner and business slug"* ]]; then
+  echo "FAIL: unexpected rejection reason in unknown-owner conflict test" >&2
+  exit 1
+fi
+missing=$(psql -X -qAt -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='clients' AND column_name='owner_user_id';")
+assert_result 0 "$missing" "unknown-owner mismatch aborts without schema changes"
+psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM public.leads WHERE id='eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee2';" >/dev/null
+
 echo "6. Approved proposal may run against ONLY synthetic complete-owner data"
 psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null
 
