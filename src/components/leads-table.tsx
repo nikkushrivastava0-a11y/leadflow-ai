@@ -93,6 +93,19 @@ function LeadStatusSelect({ lead }: { lead: Lead }) {
 export function LeadsTable({ leads }: { leads: Lead[] }) {
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+  const query = search.trim().toLocaleLowerCase();
+  const filtered = leads.filter((lead) =>
+    (statusFilter === "all" || lead.status === statusFilter) &&
+    (!query || [lead.name, lead.email, lead.phone, lead.source]
+      .some((value) => (value || "").toLocaleLowerCase().includes(query)))
+  );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visible = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   async function handleDelete(id: string, name: string) {
     if (deletingId || !window.confirm(`Permanently delete ${name}'s lead? This cannot be undone.`)) return;
@@ -126,6 +139,27 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
 
   return (
     <div className="rounded-lg border bg-white">
+      <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
+        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+          Search leads
+          <input type="search" value={search}
+            onChange={(event) => { setSearch(event.target.value); setPage(1); }}
+            placeholder="Name, email, phone or source"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal sm:w-72" />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+          Status
+          <select value={statusFilter}
+            onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 font-normal">
+            <option value="all">All statuses</option>
+            {LEAD_STATUSES.map((status) => (
+              <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -139,7 +173,7 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {leads.map((lead) => (
+          {visible.map((lead) => (
             <TableRow key={lead.id}>
               <TableCell className="font-medium">{lead.name}</TableCell>
               <TableCell>{lead.email || "—"}</TableCell>
@@ -168,6 +202,22 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
           ))}
         </TableBody>
       </Table>
+      </div>
+      {filtered.length === 0 ? (
+        <p className="px-4 py-8 text-center text-sm text-slate-600" role="status">
+          No leads match these filters.
+        </p>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-slate-600">
+        <span role="status">
+          Showing {filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length} matching leads
+        </span>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>Previous</Button>
+          <span aria-label="Current page">Page {currentPage} of {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>Next</Button>
+        </div>
+      </div>
     </div>
   );
 }
