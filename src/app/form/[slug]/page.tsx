@@ -3,6 +3,12 @@ import { notFound, redirect } from "next/navigation";
 import { isValidBusinessSlug, validatePublicLead } from "@/lib/public-leads";
 import { reservePublicLeadSubmission } from "@/lib/server/public-lead-guard";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+import { createEnquiryReceipt, verifyEnquiryReceipt, ENQUIRY_RECEIPT_COOKIE, ENQUIRY_RECEIPT_SECONDS } from "@/lib/server/public-enquiry-receipt";
+
+function intakeEnabled() {
+  return process.env.PUBLIC_ENQUIRIES_ENABLED === "true";
+}
 
 export default async function DynamicLeadForm(props: {
   params: Promise<{ slug: string }>;
@@ -15,14 +21,16 @@ export default async function DynamicLeadForm(props: {
   const slug = params.slug;
   if (!isValidBusinessSlug(slug)) notFound();
 
-  // Success UI
+  // A query parameter alone never proves the server saved an enquiry.
   if (searchParams?.success) {
+    const receipt = (await cookies()).get(ENQUIRY_RECEIPT_COOKIE)?.value;
+    const confirmed = verifyEnquiryReceipt(receipt, slug, process.env.LEAD_GUARD_HASH_SECRET);
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
         <div className="text-center rounded-xl bg-white p-8 shadow-lg max-w-sm">
-          <div className="text-4xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold text-green-600 mb-2">Thank You!</h2>
-          <p className="text-slate-600">Your details have been submitted successfully. We will get back to you soon.</p>
+          <div className="text-4xl mb-4" aria-hidden="true">{confirmed ? "✓" : "?"}</div>
+          <h2 className="text-2xl font-bold text-green-600 mb-2">{confirmed ? "Enquiry saved" : "Submission status unavailable"}</h2>
+          <p className="text-slate-600">{confirmed ? "Your enquiry was saved. The business can review it in its workspace." : "This page cannot confirm a saved enquiry. Contact the business if you are unsure before submitting again."}</p>
         </div>
       </div>
     );
@@ -78,6 +86,7 @@ export default async function DynamicLeadForm(props: {
   // Public action: validated input, shared rate guard, server-only DB writer.
   async function submitLead(formData: FormData) {
     "use server";
+    if (!intakeEnabled()) redirect(`/form/${encodeURIComponent(slug)}?error=guard`);
     const validated = validatePublicLead(formData);
     if (!validated.ok) {
       redirect("/form/" + encodeURIComponent(slug) + "?error=invalid");
@@ -116,11 +125,11 @@ export default async function DynamicLeadForm(props: {
     try {
       const { data: registeredClient, error: clientError } = await supabase
         .from("clients")
-        .select("slug")
+        .select("slug, owner_user_id")
         .eq("slug", slug)
         .maybeSingle();
 
-      businessExists = !clientError && Boolean(registeredClient?.slug);
+      businessExists = !clientError && registeredClient?.slug === slug && Boolean(registeredClient?.owner_user_id);
     } catch {
       console.error("Public form business lookup failed");
     }
@@ -141,6 +150,7 @@ export default async function DynamicLeadForm(props: {
         source: "Website Form",
         status: "new",
         score: 50,
+        score_reason: "Unscored enquiry (AI analysis has not run).",
         client_slug: slug,
       }]);
       if (error) {
@@ -163,9 +173,33 @@ export default async function DynamicLeadForm(props: {
       console.warn("Public lead saved but duplicate guard confirmation unavailable");
     }
 
-    // Dashboard refresh karo aur success page par bhejo
+    const receipt = createEnquiryReceipt(slug, process.env.LEAD_GUARD_HASH_SECRET);
+    if (receipt) {
+      (await cookies()).set(ENQUIRY_RECEIPT_COOKIE, receipt, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: `/form/${slug}`,
+        maxAge: ENQUIRY_RECEIPT_SECONDS,
+      });
+    }
+
+    // Refresh the owner workspace only after the database accepted the insert.
     revalidatePath("/dashboard");
     redirect(`/form/${encodeURIComponent(slug)}?success=true`);
+  }
+
+  // Keep intake closed until the coordinated database/auth release is approved.
+  // Recheck inside the action too: stale pages cannot bypass this gate.
+  if (!intakeEnabled() || !createPublicSubmissionClient()) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+        <section role="status" className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
+          <h1 className="text-2xl font-bold text-slate-900">Enquiry form unavailable</h1>
+          <p className="mt-3 text-slate-700">This business is not accepting online enquiries yet. Please contact the business directly.</p>
+        </section>
+      </main>
+    );
   }
 
   return (

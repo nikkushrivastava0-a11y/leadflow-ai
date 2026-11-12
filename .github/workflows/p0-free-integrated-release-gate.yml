@@ -2,9 +2,9 @@ name: Free combined backend and synthetic tenant release gate
 
 on:
   push:
-    branches: [integration/p0-free-backend-rls-gate-20261112, integration/p0-free-form-failure-tests-20261112]
+    branches: [integration/p0-free-backend-rls-gate-20261112, integration/p0-free-form-failure-tests-20261112, integration/customer-ready-candidate-20261113]
   pull_request:
-    branches: [integration/p0-backend-core-20261109, integration/p0-free-backend-rls-gate-20261112]
+    branches: [main, integration/p0-backend-core-20261109, integration/p0-free-backend-rls-gate-20261112]
 
 permissions:
   contents: read
@@ -42,6 +42,14 @@ jobs:
           persist-credentials: false
       - name: Synthetic 94-record two-tenant quarantine and lossless rollback
         run: bash security/tests/p0-integration-94-record-isolation.sh
+      - name: Rehearse exact reviewed owner migration in a fresh database
+        run: |
+          createdb leadflow_owner_rehearsal
+          PGDATABASE=leadflow_owner_rehearsal bash security/tests/p0-05d-two-tenant-migration.sh
+      - name: Rehearse exact manifest quarantine and restrictive rollback
+        run: |
+          createdb leadflow_quarantine_rehearsal
+          PGDATABASE=leadflow_quarantine_rehearsal bash security/tests/p0-05h-reviewed-quarantine.sh
       - name: Node 24
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -50,19 +58,12 @@ jobs:
       - name: Install locked packages
         run: npm ci
       - name: Offline backend/CRM/form/Auth/AI safety regressions
-        run: |
-          node --experimental-strip-types --test \
-            tests/public-lead-guard.test.ts \
-            tests/public-lead-guard-edge.test.ts \
-            tests/public-submission-secret.test.mjs \
-            tests/manual-lead-validation.test.mjs \
-            tests/dashboard-query.test.mjs \
-            tests/gemini-privacy.test.ts \
-            tests/auth-submission-outcome.test.mjs \
-            tests/auth-callback-origin.test.mjs
+        run: node --test tests/*.test.mjs tests/*.test.ts security/tests/*.test.mjs
       - name: Typecheck
         run: npx tsc --noEmit
       - name: Lint
         run: npm run lint
       - name: Production compile with synthetic build-only config
         run: npm run build
+      - name: Built app HTTP smoke with synthetic config
+        run: node scripts/http-smoke.mjs

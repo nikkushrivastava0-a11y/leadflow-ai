@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
+import { LeadFollowUp } from "@/components/lead-follow-up";
 import { toast } from "sonner";
 
 function statusColor(status: string) {
@@ -172,6 +173,7 @@ export function LeadsTable({ leads, page, totalPages, totalLeads, matchingLeads,
             <TableHead>Source</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Score</TableHead>
+            <TableHead>Next follow-up</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -189,6 +191,12 @@ export function LeadsTable({ leads, page, totalPages, totalLeads, matchingLeads,
                 <Badge variant="secondary" className={scoreColor(lead.score)}>
                   {lead.score}
                 </Badge>
+                <p className="mt-1 max-w-48 whitespace-normal text-xs text-slate-500">
+                  {lead.score_reason || "No scoring explanation recorded. This score is not verified AI analysis."}
+                </p>
+              </TableCell>
+              <TableCell>
+                <LeadFollowUp key={`${lead.id}:${lead.next_follow_up_at || "none"}`} id={lead.id} name={lead.name} value={lead.next_follow_up_at} />
               </TableCell>
               <TableCell className="text-right">
                 <Button

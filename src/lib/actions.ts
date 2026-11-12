@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { scoreLead } from "@/lib/gemini";
+import { buildTenantLeadFilter } from "@/lib/dashboard-query";
+import { validateFollowUp } from "@/lib/follow-up";
 import { resolveOwnerScope, ownerScopeMessage } from "@/lib/server/owner-scope";
 import {
   validLeadId,
@@ -29,9 +31,7 @@ export async function getLeads() {
   const { data, error } = await scope.supabase
     .from("leads")
     .select("*")
-    .or(
-      `client_slug.eq.${scope.slug},and(client_slug.is.null,user_id.eq.${scope.userId})`
-    )
+    .or(buildTenantLeadFilter(scope.slug, scope.userId, ""))
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -93,7 +93,7 @@ export async function deleteLead(id: string) {
     .from("leads")
     .delete()
     .eq("id", id)
-    .eq("client_slug", scope.slug)
+    .or(buildTenantLeadFilter(scope.slug, scope.userId, ""))
     .select("id");
 
   if (error || !data || data.length !== 1 || data[0]?.id !== id) {
@@ -116,13 +116,39 @@ export async function updateLeadStatus(id: string, status: string) {
     .from("leads")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("client_slug", scope.slug)
+    .or(buildTenantLeadFilter(scope.slug, scope.userId, ""))
     .select("id")
     .maybeSingle();
 
   if (error || data?.id !== id) {
     if (error) console.error("Owner lead status update failed:", error.code || "unknown");
     return { error: "Lead status change was not confirmed." };
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+
+export async function updateLeadFollowUp(id: string, value: string | null) {
+  if (!validLeadId(id)) return { error: "Invalid lead selection." };
+  const validated = validateFollowUp(value);
+  if (!validated.ok) return { error: validated.reason };
+
+  const scope = await resolveOwnerScope();
+  if (!scope.ok) return { error: ownerScopeMessage(scope.reason) };
+
+  const { data, error } = await scope.supabase
+    .from("leads")
+    .update({ next_follow_up_at: validated.value, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .or(buildTenantLeadFilter(scope.slug, scope.userId, ""))
+    .select("id")
+    .maybeSingle();
+
+  if (error || data?.id !== id) {
+    if (error) console.error("Owner follow-up update failed:", error.code || "unknown");
+    return { error: "Follow-up change was not confirmed. Refresh and check access." };
   }
 
   revalidatePath("/dashboard");

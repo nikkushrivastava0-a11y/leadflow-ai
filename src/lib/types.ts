@@ -10,6 +10,7 @@ export type Lead = {
   status: string;
   score: number;
   score_reason: string | null;
+  next_follow_up_at?: string | null;
   email_sent: boolean;
   created_at: string;
   updated_at: string;

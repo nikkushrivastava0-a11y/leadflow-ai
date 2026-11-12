@@ -25,6 +25,7 @@ export default async function DashboardPage({
       <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-3 px-6">
         <h1 className="text-2xl font-semibold text-slate-900">Workspace access pending</h1>
         <p className="text-slate-700">{ownerScopeMessage(scope.reason)}</p>
+        <div className="flex items-center gap-3"><a href="/login" className="text-sm text-indigo-700 underline">Sign in</a><LogoutButton /></div>
         <p className="text-sm text-slate-500">
           A verified login is not the same as an approved business workspace.
           Your existing enquiries have not been deleted.
@@ -100,10 +101,10 @@ export default async function DashboardPage({
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="flex items-center justify-between border-b bg-white px-6 py-4">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-white px-4 py-4 sm:px-6">
         <h1 className="text-xl font-bold">LeadFlow AI</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-500">{scope.email}</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="max-w-48 truncate text-sm text-slate-500" title={scope.email}>{scope.email}</span>
           <UpgradeButton />
           <LogoutButton />
         </div>
