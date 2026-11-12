@@ -109,6 +109,17 @@ assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="legacy_leads_
 missing=$(psql -X -qAt -v ON_ERROR_STOP=1 -c "select count(*) from information_schema.columns where table_schema='public' and table_name='clients' and column_name='owner_user_id';")
 assert_result 0 "$missing" "aggregate audit does not mutate schema"
 
+echo "1c. Audit detects injected synthetic orphan and unprovisioned legacy owners"
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO auth.users(id,email,email_confirmed_at) VALUES ('44444444-4444-4444-4444-444444444444','outside@example.test',now());" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.leads(id,user_id,client_slug,name) VALUES ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee4','$A','unknown-business','Audit orphan'),('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee5','44444444-4444-4444-4444-444444444444',NULL,'Audit legacy');" >/dev/null
+audit_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-ownership-audit.sql)
+assert_result 1 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="leads_with_unknown_business_slug" {print $2}')" "detect orphan business slug"
+assert_result 1 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="legacy_leads_without_provisioned_owner" {print $2}')" "detect unprovisioned legacy owner"
+psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM public.leads WHERE id IN ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee4','eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee5'); DELETE FROM auth.users WHERE id='44444444-4444-4444-4444-444444444444';" >/dev/null
+audit_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-ownership-audit.sql)
+assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="leads_with_unknown_business_slug" {print $2}')" "cleanup removes orphan warning"
+assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="legacy_leads_without_provisioned_owner" {print $2}')" "cleanup removes legacy warning"
+
 echo "2. No approval sentinel must prevent any schema changes"
 if psql -X -v ON_ERROR_STOP=1 -f "$MIGRATION" >/dev/null 2>&1; then
   echo "FAIL: RLS migration ran without review" >&2
