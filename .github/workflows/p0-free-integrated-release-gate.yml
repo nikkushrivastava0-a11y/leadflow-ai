@@ -53,6 +53,7 @@ jobs:
         run: |
           node --experimental-strip-types --test \
             tests/public-lead-guard.test.ts \
+            tests/public-lead-guard-edge.test.ts \
             tests/public-submission-secret.test.mjs \
             tests/manual-lead-validation.test.mjs \
             tests/dashboard-query.test.mjs \
