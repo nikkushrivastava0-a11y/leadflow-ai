@@ -1,60 +1,109 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@/lib/supabase/server";
+import { resolveOwnerScope, ownerScopeMessage } from "@/lib/server/owner-scope";
 import { LogoutButton } from "@/components/logout-button";
 import { AddLeadDialog } from "@/components/add-lead-dialog";
 import { LeadsTable } from "@/components/leads-table";
 import { UpgradeButton } from "@/components/upgrade-button";
 import { Lead } from "@/lib/types";
+import { buildTenantLeadFilter, normalizeLeadSearch, parseDashboardPage, parseLeadStatus } from "@/lib/dashboard-query";
 
-export default async function DashboardPage() {
-  const supabase = await createClient();
-  
-  // 1. Logged-in user ka data
-  const { data: { user } } = await supabase.auth.getUser();
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; q?: string; status?: string }>;
+}) {
+  const params = await searchParams;
+  const requestedPage = parseDashboardPage(params.page);
+  const query = normalizeLeadSearch(params.q);
+  const status = parseLeadStatus(params.status);
+  const pageSize = 20;
+  const scope = await resolveOwnerScope();
 
-  if (!user?.email) {
-    return <div className="p-8 text-center">Please log in to access dashboard.</div>;
+  if (!scope.ok) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-3 px-6">
+        <h1 className="text-2xl font-semibold text-slate-900">Workspace access pending</h1>
+        <p className="text-slate-700">{ownerScopeMessage(scope.reason)}</p>
+        <p className="text-sm text-slate-500">
+          A verified login is not the same as an approved business workspace.
+          Your existing enquiries have not been deleted.
+        </p>
+      </main>
+    );
   }
 
-  // ==================== SECURITY FIX: CLIENT SLUG FETCH ====================
-  const { data: client, error: clientError } = await supabase
-    .from('clients')
-    .select('slug')
-    .eq('owner_email', user.email)
-    .single();
+  // Exact database counts avoid reporting a truncated PostgREST page as totals.
+  const ownerFilter = buildTenantLeadFilter(scope.slug, scope.userId, "");
+  const [totalResult, hotResult, wonResult] = await Promise.all([
+    scope.supabase.from("leads").select("id", { count: "exact", head: true }).or(ownerFilter),
+    scope.supabase.from("leads").select("id", { count: "exact", head: true }).or(ownerFilter).gte("score", 70),
+    scope.supabase.from("leads").select("id", { count: "exact", head: true }).or(ownerFilter).eq("status", "won"),
+  ]);
 
-  if (clientError || !client?.slug) {
-    console.error("Client not found:", clientError);
-    return <div className="p-8 text-center text-red-600">Client profile not found. Make sure your email is in the 'clients' table.</div>;
-  }
+  const filteredOwner = buildTenantLeadFilter(scope.slug, scope.userId, query);
+  const matchingCountQuery = scope.supabase.from("leads")
+    .select("id", { count: "exact", head: true }).or(filteredOwner);
+  const matchingResult = status === "all"
+    ? await matchingCountQuery
+    : await matchingCountQuery.eq("status", status);
 
-  // ==================== SECURITY FIX: FILTER LEADS BY SLUG ====================
-  const { data: directLeads, error: leadsError } = await supabase
-    .from('leads')
-    .select('*')
-    .eq('client_slug', client.slug) // <-- YE WALI LINE AB TUMHARA DATA SECURE KAREGI
-    .order('created_at', { ascending: false });
+  const totalPages = Math.max(1, Math.ceil((matchingResult.count ?? 0) / pageSize));
+  const currentPage = Math.min(requestedPage, totalPages);
+  const leadsQuery = scope.supabase.from("leads")
+    .select("*").or(filteredOwner)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
+  const { data: directLeads, error: leadsError } = status === "all"
+    ? await leadsQuery.range((currentPage - 1) * pageSize, currentPage * pageSize - 1)
+    : await leadsQuery.eq("status", status)
+      .range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
 
-  if (leadsError) {
-    console.error("Leads fetch error:", leadsError);
+  if (leadsError || matchingResult.error || totalResult.error || hotResult.error || wonResult.error) {
+    console.error("Owner dashboard load failed:", leadsError?.code || matchingResult.error?.code || totalResult.error?.code || hotResult.error?.code || wonResult.error?.code || "unknown");
+    return (
+      <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-3 px-6">
+        <h1 className="text-2xl font-semibold text-slate-900">Leads unavailable</h1>
+        <p className="text-slate-700">
+          The dashboard cannot verify lead access right now. Please refresh or contact support.
+        </p>
+      </main>
+    );
   }
 
   const leads = (directLeads || []) as Lead[];
+  // Never display a guessed deployment URL as a customer-ready enquiry link.
+  // The canonical origin must be explicitly approved in server configuration.
+  const configuredOrigin = process.env.LEADFLOW_PUBLIC_ORIGIN;
+  let formLink: string | null = null;
+  if (configuredOrigin) {
+    try {
+      const parsed = new URL(configuredOrigin);
+      if (
+        parsed.protocol === "https:" &&
+        parsed.pathname === "/" &&
+        !parsed.username && !parsed.password &&
+        !parsed.search && !parsed.hash &&
+        !parsed.port
+      ) {
+        formLink = new URL(`/form/${scope.slug}`, parsed.origin).toString();
+      }
+    } catch {
+      // Invalid or missing configuration must never produce a shareable link.
+    }
+  }
 
   // Stats
-  const totalLeads = leads.length;
-  const hotLeads = leads.filter((l) => (l.score || 0) >= 70).length;
-  const wonLeads = leads.filter((l) => l.status === "won").length;
-
-  const formLink = `https://leadflow-ai-flame.vercel.app/form/${client.slug}`;
+  const totalLeads = totalResult.count ?? 0;
+  const hotLeads = hotResult.count ?? 0;
+  const wonLeads = wonResult.count ?? 0;
 
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="flex items-center justify-between border-b bg-white px-6 py-4">
         <h1 className="text-xl font-bold">LeadFlow AI</h1>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-500">{user.email}</span>
+          <span className="text-sm text-slate-500">{scope.email}</span>
           <UpgradeButton />
           <LogoutButton />
         </div>
@@ -64,10 +113,17 @@ export default async function DashboardPage() {
         
         {/* === FORM LINK SECTION === */}
         <div className="bg-white p-5 rounded-xl border shadow-sm flex flex-col gap-2">
-          <p className="text-sm text-slate-500 font-medium">Your Public Form Link (Share this with customers)</p>
-          <code className="bg-slate-100 px-4 py-3 rounded font-mono text-indigo-600 text-sm break-all">
-            {formLink}
-          </code>
+          <p className="text-sm text-slate-500 font-medium">Business enquiry link — do not share before launch approval</p>
+          {formLink ? (
+            <code className="bg-slate-100 px-4 py-3 rounded font-mono text-indigo-600 text-sm break-all">
+              {formLink}
+            </code>
+          ) : (
+            <p className="rounded bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+              Enquiry link unavailable: the approved public domain has not been configured.
+            </p>
+          )}
+          <p className="text-xs text-amber-800">Enquiry intake requires verified server security and is not yet ready for real customer submissions.</p>
         </div>
 
         {/* Stats Cards */}
@@ -92,7 +148,7 @@ export default async function DashboardPage() {
             <h2 className="text-xl font-semibold">Your Leads</h2>
             <AddLeadDialog />
           </div>
-          <LeadsTable leads={leads} />
+          <LeadsTable leads={leads} page={currentPage} totalPages={totalPages} totalLeads={totalLeads} matchingLeads={matchingResult.count ?? 0} query={query} status={status} />
         </div>
       </main>
     </div>

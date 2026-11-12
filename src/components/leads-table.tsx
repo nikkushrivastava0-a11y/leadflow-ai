@@ -1,7 +1,9 @@
 "use client";
 
-import { Lead } from "@/lib/types";
-import { deleteLead } from "@/lib/actions";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Lead, LEAD_STATUSES } from "@/lib/types";
+import { deleteLead, updateLeadStatus } from "@/lib/actions";
 import {
   Table,
   TableBody,
@@ -38,17 +40,94 @@ function scoreColor(score: number) {
   return "bg-gray-100 text-gray-700";
 }
 
-export function LeadsTable({ leads }: { leads: Lead[] }) {
-  async function handleDelete(id: string) {
-    const result = await deleteLead(id);
-    if (result?.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Lead deleted");
+
+function LeadStatusSelect({ lead }: { lead: Lead }) {
+  const router = useRouter();
+  const [status, setStatus] = useState(lead.status);
+  const [saving, setSaving] = useState(false);
+
+  async function changeStatus(nextStatus: string) {
+    if (saving || nextStatus === status) return;
+    const previousStatus = status;
+    setStatus(nextStatus);
+    setSaving(true);
+
+    try {
+      const result = await updateLeadStatus(lead.id, nextStatus);
+      if (result?.success === true) {
+        toast.success("Lead status updated");
+        router.refresh();
+      } else {
+        setStatus(previousStatus);
+        toast.error(result?.error || "Status update could not be confirmed.");
+      }
+    } catch {
+      setStatus(previousStatus);
+      toast.error("Could not update lead. Try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
-  if (leads.length === 0) {
+  return (
+    <label className="inline-flex items-center gap-2">
+      <span className="sr-only">Status for {lead.name}</span>
+      <select
+        value={status}
+        onChange={(event) => void changeStatus(event.target.value)}
+        disabled={saving}
+        aria-label={`Status for ${lead.name}`}
+        className={`rounded-md border border-slate-200 px-2 py-1.5 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-60 ${statusColor(status)}`}
+      >
+        {LEAD_STATUSES.map((option) => (
+          <option key={option} value={option}>
+            {option.charAt(0).toUpperCase() + option.slice(1)}
+          </option>
+        ))}
+      </select>
+      {saving ? <span className="text-[10px] text-slate-500">Saving…</span> : null}
+    </label>
+  );
+}
+
+export function LeadsTable({ leads, page, totalPages, totalLeads, matchingLeads, query, status }: {
+  leads: Lead[]; page: number; totalPages: number; totalLeads: number;
+  matchingLeads: number; query: string; status: string;
+}) {
+  const router = useRouter();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const pageSize = 20;
+  const isFiltered = Boolean(query) || status !== "all";
+  function navigatePage(next: number) {
+    if (next < 1 || next > totalPages) return;
+    const params = new URLSearchParams();
+    params.set("page", String(next));
+    if (query) params.set("q", query);
+    if (status !== "all") params.set("status", status);
+    router.push(`/dashboard?${params.toString()}`);
+  }
+  const visible = leads;
+
+  async function handleDelete(id: string, name: string) {
+    if (deletingId || !window.confirm(`Permanently delete ${name}'s lead? This cannot be undone.`)) return;
+
+    setDeletingId(id);
+    try {
+      const result = await deleteLead(id);
+      if (result?.success === true) {
+        toast.success("Lead deleted");
+        router.refresh();
+      } else {
+        toast.error(result?.error || "Deletion could not be confirmed.");
+      }
+    } catch {
+      toast.error("Deletion could not be confirmed. Please retry.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  if (totalLeads === 0) {
     return (
       <div className="rounded-lg border border-dashed p-12 text-center">
         <p className="text-slate-500">No leads yet.</p>
@@ -61,6 +140,29 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
 
   return (
     <div className="rounded-lg border bg-white">
+      <form action="/dashboard" method="get" className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-end sm:justify-between">
+        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+          Search all leads
+          <input type="search" name="q" defaultValue={query} maxLength={80}
+            placeholder="Name, email, phone or source"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal sm:w-72" />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+          Status
+          <select name="status" defaultValue={status}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 font-normal">
+            <option value="all">All statuses</option>
+            {LEAD_STATUSES.map((option) => (
+              <option key={option} value={option}>{option.charAt(0).toUpperCase() + option.slice(1)}</option>
+            ))}
+          </select>
+        </label>
+        <div className="flex items-center gap-2">
+          <Button type="submit" size="sm">Search</Button>
+          {isFiltered ? <Button type="button" variant="outline" size="sm" onClick={() => router.push("/dashboard")}>Clear filters</Button> : null}
+        </div>
+      </form>
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -74,16 +176,14 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {leads.map((lead) => (
+          {visible.map((lead) => (
             <TableRow key={lead.id}>
               <TableCell className="font-medium">{lead.name}</TableCell>
               <TableCell>{lead.email || "—"}</TableCell>
               <TableCell>{lead.phone || "—"}</TableCell>
               <TableCell className="capitalize">{lead.source}</TableCell>
               <TableCell>
-                <Badge variant="secondary" className={statusColor(lead.status)}>
-                  {lead.status}
-                </Badge>
+                <LeadStatusSelect key={`${lead.id}:${lead.status}`} lead={lead} />
               </TableCell>
               <TableCell>
                 <Badge variant="secondary" className={scoreColor(lead.score)}>
@@ -94,7 +194,9 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleDelete(lead.id)}
+                  onClick={() => handleDelete(lead.id, lead.name)}
+                  aria-label={`Delete lead ${lead.name}`}
+                  disabled={deletingId !== null}
                 >
                   <Trash2 className="h-4 w-4 text-red-500" />
                 </Button>
@@ -103,6 +205,22 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
           ))}
         </TableBody>
       </Table>
+      </div>
+      {matchingLeads === 0 ? (
+        <p className="px-4 py-8 text-center text-sm text-slate-600" role="status">
+          No leads match your search or status filter.
+        </p>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-slate-600">
+        <span role="status">
+          Showing {matchingLeads === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, matchingLeads)} of {matchingLeads} matching leads{isFiltered ? ` (${totalLeads} total)` : ""}
+        </span>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => navigatePage(page - 1)}>Previous</Button>
+          <span aria-label="Current page">Page {page} of {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => navigatePage(page + 1)}>Next</Button>
+        </div>
+      </div>
     </div>
   );
 }

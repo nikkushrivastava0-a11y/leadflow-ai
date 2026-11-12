@@ -1,0 +1,48 @@
+name: Integrated owner CRM + public enquiry backend
+
+on:
+  pull_request:
+    branches: [security/p0-05b-server-only-form-write-20261109]
+  push:
+    branches: [integration/p0-backend-core-20261109]
+
+permissions:
+  contents: read
+
+jobs:
+  backend-integrity:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-build-only-key
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: rzp_test_placeholder
+      RAZORPAY_KEY_SECRET: fake-build-secret-never-used
+      # No SUPABASE_SECRET_KEY, GEMINI_API_KEY or Redis credentials here.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Run synthetic backend and privacy regressions (offline)
+        run: |
+          node --experimental-strip-types --test \
+            tests/public-lead-guard.test.ts \
+            tests/public-submission-secret.test.mjs \
+            tests/manual-lead-validation.test.mjs \
+            tests/dashboard-query.test.mjs \
+            tests/gemini-privacy.test.ts \
+            tests/auth-submission-outcome.test.mjs \
+            tests/auth-callback-origin.test.mjs
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Next 16 production compile
+        run: npm run build
