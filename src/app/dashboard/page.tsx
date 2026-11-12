@@ -5,16 +5,23 @@ import { LogoutButton } from "@/components/logout-button";
 import { AddLeadDialog } from "@/components/add-lead-dialog";
 import { LeadsTable } from "@/components/leads-table";
 import { UpgradeButton } from "@/components/upgrade-button";
-import { Lead } from "@/lib/types";
+import { Lead, LEAD_STATUSES } from "@/lib/types";
 
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; q?: string; status?: string }>;
 }) {
   const params = await searchParams;
   const requestedPage = typeof params.page === "string" && /^[1-9]\d{0,5}$/.test(params.page)
     ? Number(params.page) : 1;
+  // Only grammar-safe characters may enter a PostgREST logical filter.
+  const query = typeof params.q === "string"
+    ? params.q.trim().replace(/[^a-zA-Z0-9 @.+_-]/g, "").slice(0, 80)
+    : "";
+  const status = typeof params.status === "string" &&
+    LEAD_STATUSES.some((allowed) => allowed === params.status)
+    ? params.status : "all";
   const pageSize = 20;
   const scope = await resolveOwnerScope();
 
@@ -39,20 +46,32 @@ export default async function DashboardPage({
     scope.supabase.from("leads").select("id", { count: "exact", head: true }).or(ownerFilter).eq("status", "won"),
   ]);
 
-  const totalPages = Math.max(1, Math.ceil((totalResult.count ?? 0) / pageSize));
-  const currentPage = Math.min(requestedPage, totalPages);
-  const { data: directLeads, error: leadsError } = await scope.supabase
-    .from("leads")
-    .select("*")
-    .or(
-      `client_slug.eq.${scope.slug},and(client_slug.is.null,user_id.eq.${scope.userId})`
-    )
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
+  // Both ownership and search must share a single logical filter.
+  const searchClause = query
+    ? `or(name.ilike.*${query}*,email.ilike.*${query}*,phone.ilike.*${query}*,source.ilike.*${query}*)`
+    : null;
+  const filteredOwner = searchClause
+    ? `and(client_slug.eq.${scope.slug},${searchClause}),and(client_slug.is.null,user_id.eq.${scope.userId},${searchClause})`
+    : ownerFilter;
+  const matchingCountQuery = scope.supabase.from("leads")
+    .select("id", { count: "exact", head: true }).or(filteredOwner);
+  const matchingResult = status === "all"
+    ? await matchingCountQuery
+    : await matchingCountQuery.eq("status", status);
 
-  if (leadsError || totalResult.error || hotResult.error || wonResult.error) {
-    console.error("Owner dashboard load failed:", leadsError?.code || totalResult.error?.code || hotResult.error?.code || wonResult.error?.code || "unknown");
+  const totalPages = Math.max(1, Math.ceil((matchingResult.count ?? 0) / pageSize));
+  const currentPage = Math.min(requestedPage, totalPages);
+  const leadsQuery = scope.supabase.from("leads")
+    .select("*").or(filteredOwner)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
+  const { data: directLeads, error: leadsError } = status === "all"
+    ? await leadsQuery.range((currentPage - 1) * pageSize, currentPage * pageSize - 1)
+    : await leadsQuery.eq("status", status)
+      .range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
+
+  if (leadsError || matchingResult.error || totalResult.error || hotResult.error || wonResult.error) {
+    console.error("Owner dashboard load failed:", leadsError?.code || matchingResult.error?.code || totalResult.error?.code || hotResult.error?.code || wonResult.error?.code || "unknown");
     return (
       <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-3 px-6">
         <h1 className="text-2xl font-semibold text-slate-900">Leads unavailable</h1>
@@ -140,7 +159,7 @@ export default async function DashboardPage({
             <h2 className="text-xl font-semibold">Your Leads</h2>
             <AddLeadDialog />
           </div>
-          <LeadsTable leads={leads} page={currentPage} totalPages={totalPages} totalLeads={totalLeads} />
+          <LeadsTable leads={leads} page={currentPage} totalPages={totalPages} totalLeads={totalLeads} matchingLeads={matchingResult.count ?? 0} query={query} status={status} />
         </div>
       </main>
     </div>
