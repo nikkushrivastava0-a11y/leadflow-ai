@@ -90,9 +90,13 @@ export function AddLeadDialog() {
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               placeholder="john@example.com"
               autoComplete="email"
+              aria-describedby="contact-help"
               maxLength={254}
             />
           </div>
+          <p className="text-xs text-slate-600" id="contact-help">
+            Provide at least one contact method: email or phone.
+          </p>
           <div className="space-y-2">
             <Label htmlFor="phone">Phone</Label>
             <Input
@@ -102,6 +106,7 @@ export function AddLeadDialog() {
               placeholder="+91 98765 43210"
               type="tel"
               autoComplete="tel"
+              aria-describedby="contact-help"
               maxLength={25}
             />
           </div>
@@ -129,10 +134,11 @@ export function AddLeadDialog() {
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
               placeholder="Interested in premium plan..."
               maxLength={1000}
+              aria-describedby="notes-limit"
               rows={3}
               className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
-            <p className="text-right text-xs text-slate-500">{form.notes.length}/1000 characters</p>
+            <p id="notes-limit" className="text-right text-xs text-slate-500">{form.notes.length}/1000 characters</p>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={loading}>
