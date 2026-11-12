@@ -1,0 +1,95 @@
+name: Free combined backend and synthetic tenant release gate
+
+on:
+  push:
+    branches: [integration/p0-free-backend-rls-gate-20261112, integration/p0-free-form-failure-tests-20261112]
+  pull_request:
+    branches: [main, integration/p0-backend-core-20261109, integration/p0-free-backend-rls-gate-20261112]
+
+permissions:
+  contents: read
+
+jobs:
+  free-integration-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: postgres
+      PGPASSWORD: synthetic-ci-only
+      LEADFLOW_SYNTHETIC_ONLY: YES
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-build-only-key
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: rzp_test_placeholder
+      RAZORPAY_KEY_SECRET: fake-build-secret-never-used
+    steps:
+      - name: Checkout exact integration candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Synthetic 94-record two-tenant quarantine and lossless rollback
+        run: bash security/tests/p0-integration-94-record-isolation.sh
+      - name: Rehearse exact reviewed owner migration in a fresh database
+        run: |
+          createdb leadflow_owner_rehearsal
+          PGDATABASE=leadflow_owner_rehearsal bash security/tests/p0-05d-two-tenant-migration.sh
+      - name: Rehearse exact manifest quarantine and restrictive rollback
+        run: |
+          createdb leadflow_quarantine_rehearsal
+          PGDATABASE=leadflow_quarantine_rehearsal bash security/tests/p0-05h-reviewed-quarantine.sh
+      - name: Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Download pinned official local Auth and PostgREST
+        run: |
+          mkdir -p "$RUNNER_TEMP/leadflow-jwt/bin"
+          curl --fail --location --retry 2 --output "$RUNNER_TEMP/leadflow-jwt/auth.tar.xz" https://github.com/supabase/auth/releases/download/v2.197.0/auth-v2.197.0-amd64.tar.xz
+          curl --fail --location --retry 2 --output "$RUNNER_TEMP/leadflow-jwt/postgrest.tar.xz" https://github.com/PostgREST/postgrest/releases/download/v16.5/postgrest-v16.5-linux-static-x86-64.tar.xz
+          printf '%s  %s\n' b5c2991d1df760c9b099c1c2395a94bd1c2f83ed58901934921997179dc9f7ea "$RUNNER_TEMP/leadflow-jwt/auth.tar.xz" | sha256sum --check
+          printf '%s  %s\n' 5099e7ada38f9f6846cd87c14c5f158b7c165f1e9959665ad412e61f4dceba95 "$RUNNER_TEMP/leadflow-jwt/postgrest.tar.xz" | sha256sum --check
+          tar --extract --xz --no-same-owner --file "$RUNNER_TEMP/leadflow-jwt/auth.tar.xz" --directory "$RUNNER_TEMP/leadflow-jwt/bin" auth
+          tar --extract --xz --no-same-owner --file "$RUNNER_TEMP/leadflow-jwt/postgrest.tar.xz" --directory "$RUNNER_TEMP/leadflow-jwt/bin" postgrest
+      - name: Existing PostgreSQL guard concurrency and isolation
+        run: |
+          createdb leadflow_guard_rehearsal
+          PGDATABASE=leadflow_guard_rehearsal node security/tests/postgres-enquiry-guard.mjs
+      - name: Atomic production proposal and real synthetic backup restore
+        run: |
+          createdb leadflow_atomic_rehearsal
+          PGDATABASE=leadflow_atomic_rehearsal LEADFLOW_SYNTHETIC_PG_CONTAINER="${{ job.services.postgres.id }}" node security/tests/production-atomic-cutover.mjs
+      - name: Durable test billing concurrency and rollback
+        run: |
+          createdb leadflow_billing_rehearsal
+          PGDATABASE=leadflow_billing_rehearsal bash security/tests/billing-test-ledger.sh
+      - name: Install locked packages
+        run: npm ci
+      - name: Offline backend/CRM/form/Auth/AI safety regressions
+        run: node --test tests/*.test.mjs tests/*.test.ts security/tests/*.test.mjs
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Production compile with synthetic build-only config
+        run: npm run build
+      - name: Built app HTTP smoke with synthetic config
+        run: node scripts/http-smoke.mjs
+      - name: Real local Next owner and public customer flow
+        run: |
+          createdb leadflow_jwt_next_rehearsal
+          PGDATABASE=leadflow_jwt_next_rehearsal LEADFLOW_NEXT_FLOW=YES LEADFLOW_PUBLIC_NEXT_FLOW=YES LEADFLOW_AUTH_BIN="$RUNNER_TEMP/leadflow-jwt/bin/auth" LEADFLOW_POSTGREST_BIN="$RUNNER_TEMP/leadflow-jwt/bin/postgrest" node security/tests/local-auth-api.mjs

@@ -1,6 +1,7 @@
 export type Lead = {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  client_slug: string | null;
   name: string;
   email: string | null;
   phone: string | null;
@@ -9,6 +10,7 @@ export type Lead = {
   status: string;
   score: number;
   score_reason: string | null;
+  next_follow_up_at?: string | null;
   email_sent: boolean;
   created_at: string;
   updated_at: string;

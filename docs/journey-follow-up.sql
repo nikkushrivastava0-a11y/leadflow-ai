@@ -1,0 +1,7 @@
+-- SUPERSEDED REVIEW POINTER ONLY. Do not execute this file on production.
+-- The additive nullable next_follow_up_at column and narrow UPDATE grant are
+-- bundled with owner-linked RLS in security/proposals/p0-05-reviewed-rls.sql.
+-- Use that complete, gated proposal after backup, identity review and real
+-- Supabase JWT acceptance. Applying a standalone column-level grant against
+-- the current permissive policies could widen access.
+-- On application rollback retain the nullable column and saved schedules.

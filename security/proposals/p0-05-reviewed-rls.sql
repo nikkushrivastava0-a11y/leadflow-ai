@@ -1,0 +1,273 @@
+-- PROPOSAL ONLY — DO NOT APPLY TO PRODUCTION.
+-- P0-05: RLS + minimum privileges for EXISTING LeadFlow AI tables.
+--
+-- LIVE AUDIT 2026-11-09 (aggregate only):
+--   Historical audit: 7 clients, 94 leads; tables were broadly granted to anon.
+--   Fresh read-only audit 2026-11-12: RLS is ON, all 7 client emails have a
+--   unique confirmed Auth match, but owner_user_id / reviewed policies are
+--   absent. 39 leads remain unresolved (5 orphan slugs + 34 legacy owners).
+--   This migration still ABORTS until reviewed reconciliation or approved
+--   staging quarantine removes those rows from its exposure set.
+--
+-- Prerequisites BEFORE running in a disposable staging clone:
+--   1) Human review and resolve unmatched owner/ambiguous legacy leads.
+--   2) Migrate public form submissions to a guarded SERVER-ONLY path.
+--      This script deliberately REVOKES ALL anon writes and reads.
+--   3) Test with 2 synthetic Auth users and 2 businesses.
+--   4) Approve downtime/deployment plan and explicit env approval.
+--
+-- The SQL is deliberately blocked by a session approval sentinel.
+-- Setting it is an explicit human action, not part of automated deployment.
+-- SET LOCAL leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';
+--
+-- Do not execute from CI, Supabase MCP, or a production migration runner
+-- while preflight anomalies remain. No rows should be guessed/reassigned.
+
+BEGIN;
+
+DO $review$
+BEGIN
+  IF current_setting('leadflow.reviewed_rls_release', true)
+     IS DISTINCT FROM 'APPROVED_IN_STAGING'
+  THEN
+    RAISE EXCEPTION 'LeadFlow RLS review gate: staging-only approval sentinel missing';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.clients c
+    LEFT JOIN auth.users u
+      ON lower(trim(c.owner_email)) = lower(trim(u.email))
+     AND u.email_confirmed_at IS NOT NULL
+    WHERE u.id IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Unmatched client owner: resolve in a private admin workflow';
+  END IF;
+
+  -- A one-time email backfill must be unambiguous on BOTH sides.
+  -- A duplicate verified Auth email could otherwise select an arbitrary UUID
+  -- in UPDATE ... FROM; duplicate client owner emails cannot satisfy a
+  -- one-workspace-per-owner mapping. Abort instead of choosing a record.
+  IF EXISTS (
+    SELECT 1 FROM auth.users u
+    WHERE u.email_confirmed_at IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.clients c
+        WHERE lower(trim(c.owner_email)) = lower(trim(u.email))
+      )
+    GROUP BY lower(trim(u.email))
+    HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'Ambiguous verified Auth email: resolve duplicate identities privately';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.clients c
+    GROUP BY lower(trim(c.owner_email))
+    HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'Duplicate business owner email: review one-owner-one-workspace mapping';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.leads l
+    LEFT JOIN public.clients c ON c.slug=l.client_slug
+    LEFT JOIN auth.users c_owner
+      ON lower(trim(c.owner_email))=lower(trim(c_owner.email))
+     AND c_owner.email_confirmed_at IS NOT NULL
+    LEFT JOIN auth.users legacy_user ON legacy_user.id=l.user_id
+    WHERE c_owner.id IS NULL AND legacy_user.id IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Ambiguous legacy leads: reconcile ownership without guessing';
+  END IF;
+
+  -- Legacy rows without a business slug must belong to a confirmed Auth
+  -- identity that maps to a reviewed workspace. Existence in auth.users alone
+  -- is insufficient: unconfirmed or unprovisioned users must not gain direct
+  -- Data API access to legacy enquiries.
+  IF EXISTS (
+    SELECT 1 FROM public.leads l
+    WHERE l.client_slug IS NULL AND NOT EXISTS (
+      SELECT 1 FROM auth.users u
+      JOIN public.clients c
+        ON lower(trim(c.owner_email)) = lower(trim(u.email))
+      WHERE u.id = l.user_id
+        AND u.email_confirmed_at IS NOT NULL
+    )
+  ) THEN
+    RAISE EXCEPTION 'Unverified or unprovisioned legacy lead owner: private reconciliation required';
+  END IF;
+
+  -- A non-NULL slug must resolve to a real business even if user_id is valid.
+  -- Otherwise the lead becomes invisible after RLS activates; user_id fallback
+  -- is intentionally allowed only when client_slug is NULL.
+  IF EXISTS (
+    SELECT 1 FROM public.leads l
+    LEFT JOIN public.clients c ON c.slug = l.client_slug
+    WHERE l.client_slug IS NOT NULL AND c.slug IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Orphan business slug on lead: reconcile before enabling RLS';
+  END IF;
+
+  -- Every non-NULL lead owner UUID must agree with the verified business.
+  -- Reject even UUIDs missing from auth.users: an orphan user_id is not
+  -- evidence of ownership, and public-form submissions should use NULL.
+  IF EXISTS (
+    SELECT 1 FROM public.leads l
+    JOIN public.clients c ON c.slug = l.client_slug
+    JOIN auth.users verified_owner
+      ON lower(trim(verified_owner.email)) = lower(trim(c.owner_email))
+     AND verified_owner.email_confirmed_at IS NOT NULL
+    WHERE l.user_id IS NOT NULL
+      AND l.user_id <> verified_owner.id
+  ) THEN
+    RAISE EXCEPTION 'Conflicting lead owner and business slug: private review required';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_policies p
+    WHERE p.schemaname='public'
+      AND p.tablename IN ('clients','leads')
+      AND p.policyname NOT IN (
+        'Users can insert their own leads',
+        'Users can view their own leads'
+      )
+  ) THEN
+    RAISE EXCEPTION 'Unexpected policies found; human review before replacement';
+  END IF;
+END
+$review$;
+
+-- Immutable, Auth-linked owner identity. Do not use user_metadata as a trust
+-- root. Email is used only for human-reviewed one-time backfill, never RLS.
+ALTER TABLE public.clients
+  ADD COLUMN owner_user_id uuid REFERENCES auth.users(id) ON DELETE RESTRICT;
+
+UPDATE public.clients c
+SET owner_user_id = u.id
+FROM auth.users u
+WHERE lower(trim(c.owner_email)) = lower(trim(u.email))
+  AND u.email_confirmed_at IS NOT NULL;
+
+ALTER TABLE public.clients
+  ALTER COLUMN owner_user_id SET NOT NULL;
+CREATE UNIQUE INDEX clients_owner_user_id_uniq
+  ON public.clients (owner_user_id);
+CREATE INDEX leads_client_slug_idx ON public.leads (client_slug);
+CREATE INDEX leads_user_id_idx ON public.leads (user_id);
+
+-- Existing policies are replaced, never combined with reviewed owner policies.
+-- Replace rather than combine permissive rules during activation.
+DROP POLICY IF EXISTS "Users can insert their own leads" ON public.leads;
+DROP POLICY IF EXISTS "Users can view their own leads" ON public.leads;
+
+ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+
+-- Revoke old database-wide grants. RLS alone is NOT enough if API roles
+-- keep TRUNCATE, TRIGGER or REFERENCES privileges.
+REVOKE ALL PRIVILEGES ON TABLE public.clients FROM anon, authenticated, PUBLIC;
+REVOKE ALL PRIVILEGES ON TABLE public.leads FROM anon, authenticated, PUBLIC;
+
+-- Clients are private. No anon SELECT on clients because owner_email and
+-- other profile data must not become enumerable via Data API.
+-- Owner dashboard's client lookup will continue to select its own slug.
+GRANT SELECT ON TABLE public.clients TO authenticated;
+CREATE POLICY clients_owner_select
+  ON public.clients FOR SELECT TO authenticated
+  USING (owner_user_id = (SELECT auth.uid()));
+
+-- No direct clients INSERT/UPDATE/DELETE to authenticated or anon.
+-- New-client provisioning must be a separate verified, authenticated,
+-- narrowly scoped server operation.
+
+-- Nullable follow-up field required by the release-candidate owner workflow.
+-- Additive; existing rows keep NULL and no owner mapping changes here.
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS next_follow_up_at timestamptz;
+
+-- CRM: authenticated owners only, with column-level mutating grants.
+GRANT SELECT ON TABLE public.leads TO authenticated;
+GRANT INSERT (
+  user_id, client_slug, name, email, phone, source, notes,
+  status, score, score_reason
+) ON TABLE public.leads TO authenticated;
+GRANT UPDATE (status, updated_at, next_follow_up_at) ON TABLE public.leads TO authenticated;
+GRANT DELETE ON TABLE public.leads TO authenticated;
+
+-- Authorize by verified business slug when present.
+-- Legacy user_id fallback is allowed ONLY when client_slug is NULL.
+-- Do not use NOT EXISTS on clients for a non-null orphan slug here:
+-- clients RLS filters other businesses from view, so NOT EXISTS could be
+-- TRUE for a different tenant and leak their row to a conflicting user_id.
+CREATE POLICY leads_owner_select
+  ON public.leads FOR SELECT TO authenticated
+  USING (
+    (
+      client_slug IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.clients c
+        WHERE c.slug = leads.client_slug
+          AND c.owner_user_id = (SELECT auth.uid())
+      )
+    )
+    OR
+    (
+      user_id = (SELECT auth.uid())
+      AND client_slug IS NULL
+      AND EXISTS (
+        SELECT 1 FROM public.clients c
+        WHERE c.owner_user_id = (SELECT auth.uid())
+      )
+    )
+  );
+
+-- Manual inserts require BOTH the verified owner id and matching business.
+-- Direct anon inserts are NOT permitted. Public forms need a protected
+-- Next.js server submission with an approved server-only credential and
+-- atomic anti-spam guard; a public anon insert grant would bypass it.
+CREATE POLICY leads_owner_insert
+  ON public.leads FOR INSERT TO authenticated
+  WITH CHECK (
+    user_id = (SELECT auth.uid())
+    AND EXISTS (
+      SELECT 1 FROM public.clients c
+      WHERE c.slug = leads.client_slug
+        AND c.owner_user_id = (SELECT auth.uid())
+    )
+  );
+
+CREATE POLICY leads_owner_update
+  ON public.leads FOR UPDATE TO authenticated
+  USING (
+    client_slug IS NOT NULL
+    AND EXISTS (
+      SELECT 1 FROM public.clients c
+      WHERE c.slug = leads.client_slug
+        AND c.owner_user_id = (SELECT auth.uid())
+    )
+  )
+  WITH CHECK (
+    client_slug IS NOT NULL
+    AND EXISTS (
+      SELECT 1 FROM public.clients c
+      WHERE c.slug = leads.client_slug
+        AND c.owner_user_id = (SELECT auth.uid())
+    )
+  );
+
+CREATE POLICY leads_owner_delete
+  ON public.leads FOR DELETE TO authenticated
+  USING (
+    client_slug IS NOT NULL
+    AND EXISTS (
+      SELECT 1 FROM public.clients c
+      WHERE c.slug = leads.client_slug
+        AND c.owner_user_id = (SELECT auth.uid())
+    )
+  );
+
+-- Intentionally NO anon policies and NO anon grants.
+-- Intentional side effect until secure public form adapter is rolled out:
+-- anonymous enquiry insert and client slug lookup will FAIL.
+-- We prefer a visible outage in staging over silently exposing customer PII.
+
+COMMIT;
