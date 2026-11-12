@@ -2,9 +2,9 @@ name: Free combined backend and synthetic tenant release gate
 
 on:
   push:
-    branches: [integration/p0-free-backend-rls-gate-20261112]
+    branches: [integration/p0-free-backend-rls-gate-20261112, integration/p0-free-form-failure-tests-20261112]
   pull_request:
-    branches: [integration/p0-backend-core-20261109]
+    branches: [integration/p0-backend-core-20261109, integration/p0-free-backend-rls-gate-20261112]
 
 permissions:
   contents: read
@@ -53,6 +53,7 @@ jobs:
         run: |
           node --experimental-strip-types --test \
             tests/public-lead-guard.test.ts \
+            tests/public-lead-guard-edge.test.ts \
             tests/public-submission-secret.test.mjs \
             tests/manual-lead-validation.test.mjs \
             tests/dashboard-query.test.mjs \
