@@ -55,8 +55,8 @@ test("reservation release uses original token, not a new writer's key", async ()
     const release = commands[1];
     assert.equal(reserve[0], "EVAL");
     assert.equal(release[0], "EVAL");
-    assert.equal(release[4], reserve[5], "same hashed duplicate Redis key");
-    assert.equal(release[5], reserve[9], "same reservation token");
+    assert.equal(release[3], reserve[5], "same hashed duplicate Redis key");
+    assert.equal(release[4], reserve[9], "same reservation token");
     assert.match(String(release[1]), /redis.call\('GET'/);
     assert.match(String(release[1]), /redis.call\('DEL'/);
   });
