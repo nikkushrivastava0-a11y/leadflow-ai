@@ -140,6 +140,10 @@ assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="distinct_lead
 queue_count=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-private-lead-reconciliation-queue.sql | wc -l | tr -d ' ')
 assert_result 0 "$queue_count" "private review queue clears after synthetic cleanup"
 
+echo "1d. Read-only release gate distinguishes clean synthetic ownership from unreviewed privileges"
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|BLOCKED" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "pre-migration release gate stays blocked"
+
 echo "2. No approval sentinel must prevent any schema changes"
 if psql -X -v ON_ERROR_STOP=1 -f "$MIGRATION" >/dev/null 2>&1; then
   echo "FAIL: RLS migration ran without review" >&2
@@ -231,6 +235,10 @@ psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM public.leads WHERE id='eeeeeeee-eeee-
 
 echo "6. Approved proposal may run against ONLY synthetic complete-owner data"
 psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null
+
+echo "6a. The approved synthetic migration satisfies both read-only release gates"
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|PASS" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "synthetic migration passes hardened policy gate"
 
 echo "6. Anonymous cannot read private business/lead data"
 if psql -X -qAt -v ON_ERROR_STOP=1 -c "SET ROLE anon; select count(*) from public.clients;" >/dev/null 2>&1; then
