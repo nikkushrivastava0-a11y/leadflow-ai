@@ -110,6 +110,9 @@ assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="distinct_lead
 missing=$(psql -X -qAt -v ON_ERROR_STOP=1 -c "select count(*) from information_schema.columns where table_schema='public' and table_name='clients' and column_name='owner_user_id';")
 assert_result 0 "$missing" "aggregate audit does not mutate schema"
 
+queue_count=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-private-lead-reconciliation-queue.sql | wc -l | tr -d ' ')
+assert_result 0 "$queue_count" "clean baseline has no private review queue entries"
+
 echo "1c. Audit detects injected synthetic orphan and unprovisioned legacy owners"
 psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO auth.users(id,email,email_confirmed_at) VALUES ('44444444-4444-4444-4444-444444444444','outside@example.test',now());" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.leads(id,user_id,client_slug,name) VALUES ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee4','$A','unknown-business','Audit orphan'),('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee5','44444444-4444-4444-4444-444444444444',NULL,'Audit legacy');" >/dev/null
@@ -117,11 +120,25 @@ audit_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-reado
 assert_result 1 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="leads_with_unknown_business_slug" {print $2}')" "detect orphan business slug"
 assert_result 1 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="legacy_leads_without_provisioned_owner" {print $2}')" "detect unprovisioned legacy owner"
 assert_result 2 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="distinct_leads_requiring_reconciliation" {print $2}')" "distinct blockers count each synthetic lead once"
+queue_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-private-lead-reconciliation-queue.sql)
+queue_count=$(printf '%s\n' "$queue_output" | wc -l | tr -d ' ')
+assert_result 2 "$queue_count" "private queue includes both synthetic anomalies"
+if ! printf '%s\n' "$queue_output" | grep -q 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee4|unknown_business_slug'; then
+  echo "FAIL: orphan synthetic ID not flagged with correct reason" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$queue_output" | grep -q 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee5|unprovisioned_legacy_owner'; then
+  echo "FAIL: legacy synthetic ID not flagged with correct reason" >&2
+  exit 1
+fi
+
 psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM public.leads WHERE id IN ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee4','eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee5'); DELETE FROM auth.users WHERE id='44444444-4444-4444-4444-444444444444';" >/dev/null
 audit_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-ownership-audit.sql)
 assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="leads_with_unknown_business_slug" {print $2}')" "cleanup removes orphan warning"
 assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="legacy_leads_without_provisioned_owner" {print $2}')" "cleanup removes legacy warning"
 assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="distinct_leads_requiring_reconciliation" {print $2}')" "synthetic cleanup leaves no distinct blockers"
+queue_count=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-private-lead-reconciliation-queue.sql | wc -l | tr -d ' ')
+assert_result 0 "$queue_count" "private review queue clears after synthetic cleanup"
 
 echo "2. No approval sentinel must prevent any schema changes"
 if psql -X -v ON_ERROR_STOP=1 -f "$MIGRATION" >/dev/null 2>&1; then
