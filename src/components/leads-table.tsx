@@ -90,26 +90,23 @@ function LeadStatusSelect({ lead }: { lead: Lead }) {
   );
 }
 
-export function LeadsTable({ leads, page, totalPages, totalLeads }: {
+export function LeadsTable({ leads, page, totalPages, totalLeads, matchingLeads, query, status }: {
   leads: Lead[]; page: number; totalPages: number; totalLeads: number;
+  matchingLeads: number; query: string; status: string;
 }) {
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const pageSize = 20;
+  const isFiltered = Boolean(query) || status !== "all";
   function navigatePage(next: number) {
     if (next < 1 || next > totalPages) return;
-    router.push(`/dashboard?page=${next}`);
+    const params = new URLSearchParams();
+    params.set("page", String(next));
+    if (query) params.set("q", query);
+    if (status !== "all") params.set("status", status);
+    router.push(`/dashboard?${params.toString()}`);
   }
-  const query = search.trim().toLocaleLowerCase();
-  const filtered = leads.filter((lead) =>
-    (statusFilter === "all" || lead.status === statusFilter) &&
-    (!query || [lead.name, lead.email, lead.phone, lead.source]
-      .some((value) => (value || "").toLocaleLowerCase().includes(query)))
-  );
-  const visible = filtered;
-  const isFiltered = Boolean(query) || statusFilter !== "all";
+  const visible = leads;
 
   async function handleDelete(id: string, name: string) {
     if (deletingId || !window.confirm(`Permanently delete ${name}'s lead? This cannot be undone.`)) return;
@@ -143,41 +140,28 @@ export function LeadsTable({ leads, page, totalPages, totalLeads }: {
 
   return (
     <div className="rounded-lg border bg-white">
-      <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
+      <form action="/dashboard" method="get" className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-end sm:justify-between">
         <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-          Search leads
-          <input type="search" value={search}
-            onChange={(event) => { setSearch(event.target.value); }}
+          Search all leads
+          <input type="search" name="q" defaultValue={query} maxLength={80}
             placeholder="Name, email, phone or source"
             className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal sm:w-72" />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
           Status
-          <select value={statusFilter}
-            onChange={(event) => { setStatusFilter(event.target.value); }}
+          <select name="status" defaultValue={status}
             className="rounded-md border border-slate-300 bg-white px-3 py-2 font-normal">
             <option value="all">All statuses</option>
-            {LEAD_STATUSES.map((status) => (
-              <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
+            {LEAD_STATUSES.map((option) => (
+              <option key={option} value={option}>{option.charAt(0).toUpperCase() + option.slice(1)}</option>
             ))}
           </select>
         </label>
-        {(search || statusFilter !== "all") ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => { setSearch(""); setStatusFilter("all"); }}
-          >
-            Clear filters
-          </Button>
-        ) : null}
-      </div>
-      {isFiltered ? (
-        <p className="px-4 text-xs text-amber-800" role="status">
-          Search and status filters apply to this page only. Clear filters or navigate pages to browse other leads.
-        </p>
-      ) : null}
+        <div className="flex items-center gap-2">
+          <Button type="submit" size="sm">Search</Button>
+          {isFiltered ? <Button type="button" variant="outline" size="sm" onClick={() => router.push("/dashboard")}>Clear filters</Button> : null}
+        </div>
+      </form>
       <div className="overflow-x-auto">
       <Table>
         <TableHeader>
@@ -222,14 +206,14 @@ export function LeadsTable({ leads, page, totalPages, totalLeads }: {
         </TableBody>
       </Table>
       </div>
-      {filtered.length === 0 ? (
+      {matchingLeads === 0 ? (
         <p className="px-4 py-8 text-center text-sm text-slate-600" role="status">
-          No leads match these filters.
+          No leads match your search or status filter.
         </p>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-slate-600">
         <span role="status">
-          Showing {leads.length === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalLeads)} of {totalLeads} leads{isFiltered ? ` (${filtered.length} match on this page)` : ""}
+          Showing {matchingLeads === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, matchingLeads)} of {matchingLeads} matching leads{isFiltered ? ` (${totalLeads} total)` : ""}
         </span>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => navigatePage(page - 1)}>Previous</Button>
