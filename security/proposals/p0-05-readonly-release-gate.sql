@@ -82,10 +82,25 @@ schema_metrics AS (
       WHERE n.nspname='public' AND c.relname IN ('clients','leads')
         AND (c.relrowsecurity IS FALSE)
     ) AS rls_disabled,
-    has_table_privilege('anon','public.clients','SELECT') OR
-    has_table_privilege('anon','public.clients','INSERT') OR
-    has_table_privilege('anon','public.leads','SELECT') OR
-    has_table_privilege('anon','public.leads','INSERT') AS broad_anon_grants
+    EXISTS (
+      SELECT 1 FROM pg_class cls
+      JOIN pg_namespace ns ON ns.oid = cls.relnamespace
+      WHERE ns.nspname = 'public' AND cls.relname IN ('clients','leads')
+        AND cls.relkind IN ('r','p')
+        AND (
+          has_table_privilege('anon', cls.oid, 'SELECT')
+          OR has_table_privilege('anon', cls.oid, 'INSERT')
+          OR has_table_privilege('anon', cls.oid, 'UPDATE')
+          OR has_table_privilege('anon', cls.oid, 'DELETE')
+          OR has_table_privilege('anon', cls.oid, 'TRUNCATE')
+          OR has_table_privilege('anon', cls.oid, 'REFERENCES')
+          OR has_table_privilege('anon', cls.oid, 'TRIGGER')
+          OR has_any_column_privilege('anon', cls.oid, 'SELECT')
+          OR has_any_column_privilege('anon', cls.oid, 'INSERT')
+          OR has_any_column_privilege('anon', cls.oid, 'UPDATE')
+          OR has_any_column_privilege('anon', cls.oid, 'REFERENCES')
+        )
+    ) AS broad_anon_grants
 )
 SELECT
   CASE WHEN unmatched_clients=0 AND duplicate_auth_emails=0
