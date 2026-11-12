@@ -2,7 +2,7 @@ name: Free combined backend and synthetic tenant release gate
 
 on:
   push:
-    branches: [integration/p0-free-backend-rls-gate-20261112, integration/p0-free-form-failure-tests-20261112, integration/customer-ready-candidate-20261113]
+    branches: [integration/p0-free-backend-rls-gate-20261112, integration/p0-free-form-failure-tests-20261112]
   pull_request:
     branches: [main, integration/p0-backend-core-20261109, integration/p0-free-backend-rls-gate-20261112]
 
@@ -12,6 +12,7 @@ permissions:
 jobs:
   free-integration-contract:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:17
@@ -64,10 +65,18 @@ jobs:
           printf '%s  %s\n' 5099e7ada38f9f6846cd87c14c5f158b7c165f1e9959665ad412e61f4dceba95 "$RUNNER_TEMP/leadflow-jwt/postgrest.tar.xz" | sha256sum --check
           tar --extract --xz --no-same-owner --file "$RUNNER_TEMP/leadflow-jwt/auth.tar.xz" --directory "$RUNNER_TEMP/leadflow-jwt/bin" auth
           tar --extract --xz --no-same-owner --file "$RUNNER_TEMP/leadflow-jwt/postgrest.tar.xz" --directory "$RUNNER_TEMP/leadflow-jwt/bin" postgrest
-      - name: Real local Supabase Auth JWT and PostgREST owner isolation
+      - name: Existing PostgreSQL guard concurrency and isolation
         run: |
-          createdb leadflow_jwt_rehearsal
-          PGDATABASE=leadflow_jwt_rehearsal LEADFLOW_AUTH_BIN="$RUNNER_TEMP/leadflow-jwt/bin/auth" LEADFLOW_POSTGREST_BIN="$RUNNER_TEMP/leadflow-jwt/bin/postgrest" node security/tests/local-auth-api.mjs
+          createdb leadflow_guard_rehearsal
+          PGDATABASE=leadflow_guard_rehearsal node security/tests/postgres-enquiry-guard.mjs
+      - name: Atomic production proposal and real synthetic backup restore
+        run: |
+          createdb leadflow_atomic_rehearsal
+          PGDATABASE=leadflow_atomic_rehearsal LEADFLOW_SYNTHETIC_PG_CONTAINER="${{ job.services.postgres.id }}" node security/tests/production-atomic-cutover.mjs
+      - name: Durable test billing concurrency and rollback
+        run: |
+          createdb leadflow_billing_rehearsal
+          PGDATABASE=leadflow_billing_rehearsal bash security/tests/billing-test-ledger.sh
       - name: Install locked packages
         run: npm ci
       - name: Offline backend/CRM/form/Auth/AI safety regressions
@@ -80,3 +89,7 @@ jobs:
         run: npm run build
       - name: Built app HTTP smoke with synthetic config
         run: node scripts/http-smoke.mjs
+      - name: Real local Next owner and public customer flow
+        run: |
+          createdb leadflow_jwt_next_rehearsal
+          PGDATABASE=leadflow_jwt_next_rehearsal LEADFLOW_NEXT_FLOW=YES LEADFLOW_PUBLIC_NEXT_FLOW=YES LEADFLOW_AUTH_BIN="$RUNNER_TEMP/leadflow-jwt/bin/auth" LEADFLOW_POSTGREST_BIN="$RUNNER_TEMP/leadflow-jwt/bin/postgrest" node security/tests/local-auth-api.mjs

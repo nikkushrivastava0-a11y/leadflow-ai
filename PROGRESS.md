@@ -37,3 +37,15 @@ Official pinned Supabase Auth2.197.0 and PostgREST16.5 were run on loopback with
 ## Pending final evidence
 
 Final source SHA, PR, CI and preview evidence are recorded in the candidate PR description and checked after publishing. See BLOCKERS.md for hard release gates. No production merge/promotion/migration or customer data mutation is authorized.
+
+
+## Continued launch-blocker session
+
+- Added existing PostgreSQL guard provider (same tenant/contact/duplicate contract), SECURITY INVOKER service-only RPC and private RLS state. Exact SQL/concurrent throttle/token/expiry/unknown-business tests passed locally; Redis is optional, no new service required.
+- Added test-key-only, OFF-by-default payment checkout/verify/webhook with official test API adapter, server test catalogue, stored-order signatures, captured amount/currency/refund checks, raw-body webhook HMAC, durable order/event/test-entitlement ledger, concurrent replay/throttle safety and irreversible refund/dispute tombstones. No provider call/real payment made. Original checkout/UI remain disabled.
+- Added exact production-specific atomic owner/quarantine/RLS transaction and restrictive recovery, private manifest/snapshot/receipt gates. Actual synthetic pg_dump archive restored and full-row/schema/ACL hashes matched. Real production backup is unavailable, not claimed.
+- Actual Next production-build HTTP flow passed locally with official Auth/PostgREST, standard SSR cookies, expiry/refresh, owner actions, follow-ups, search/pagination, CSRF, signup-pending and logout.
+- Actual native multipart public action passed via a narrow fixture TLS CA/SAN and generated fake writer key: real PostgreSQL guard+insert, correct owner dashboard, receipt, duplicate/honeypot/invalid/unknown denial and failed-write reservation release/retry. No production URL/TLS validation was weakened. Browser/mobile and hosted provider semantics remain unverified.
+- Preview branch configuration verified by key metadata only: private sensitive hash, postgres provider, canonical URLs, intake=false, billing=disabled. Production variables untouched.
+- Current integrated offline/proposal tests84/84 pass; final combined CI and preview evidence are recorded in PR55 after publishing. CI also runs exact SQL/concurrency/backup/Next owner+public rehearsals in separate synthetic databases.
+- Hosted configuration is blocked on Supabase dashboard sign-in/server key; production cutover on private manifests and real backup/restore evidence; provider activation on genuine test credentials/acceptance. See BLOCKERS.md.

@@ -1,9 +1,11 @@
 import { createHmac, randomUUID } from "node:crypto";
+import { createPublicSubmissionClient } from "./public-submission-client.ts";
 
 /**
  * Shared, atomic guard for anonymous server-action submissions.
  * In-memory counters do NOT protect Vercel/serverless instances.
- * Redis is required and absence of configuration FAILS CLOSED.
+ * Shared Redis or the reviewed existing-PostgreSQL provider is required.
+ * Missing/invalid configuration FAILS CLOSED; there is no in-memory fallback.
  * 
  * Two independent 1-hour rate limits: 60 submissions per business and
  * 4 attempts per contact. A short reservation prevents rapid duplicates.
@@ -129,8 +131,12 @@ export async function reservePublicLeadSubmission(input: {
     return { allowed: false, reason: "spam" };
   }
 
-  const cfg = config();
-  if (!cfg) return { allowed: false, reason: "unavailable" };
+  const provider = process.env.LEAD_GUARD_PROVIDER || "redis";
+  if (provider !== "redis" && provider !== "postgres") return { allowed: false, reason: "unavailable" };
+  const pepper = process.env.LEAD_GUARD_HASH_SECRET;
+  const cfg = provider === "redis" ? config() : null;
+  const postgres = provider === "postgres" && pepper && pepper.length >= 32 ? createPublicSubmissionClient() : null;
+  if ((!cfg && !postgres) || !pepper || pepper.length < 32) return { allowed: false, reason: "unavailable" };
 
   const slug = input.slug.trim().toLowerCase();
   const contact = input.email.trim().toLowerCase() + "|" +
@@ -139,15 +145,23 @@ export async function reservePublicLeadSubmission(input: {
     input.name.trim().toLowerCase();
 
   // Never send raw email/phone/name in Redis key names, metrics, or logs.
-  const tenantKey = "lf:leads:tenant:" + hash(slug, cfg.pepper);
-  const contactKey = "lf:leads:contact:" + hash(slug + "|" + contact, cfg.pepper);
-  const duplicateKey = "lf:leads:duplicate:" + hash(fingerprint, cfg.pepper);
+  const tenantKey = "lf:leads:tenant:" + hash(slug, pepper);
+  const contactKey = "lf:leads:contact:" + hash(slug + "|" + contact, pepper);
+  const duplicateKey = "lf:leads:duplicate:" + hash(fingerprint, pepper);
   const reservationToken = randomUUID();
 
-  const code = await redisEval(
-    cfg,
-    RATE_LUA,
-    [tenantKey, contactKey, duplicateKey],
+  async function postgresOperation(operation: "reserve" | "complete" | "release") {
+    if (!postgres) return null;
+    try {
+      const { data, error } = await postgres.rpc("leadflow_enquiry_guard", {
+        p_operation: operation, p_slug: slug, p_tenant_key: tenantKey,
+        p_contact_key: contactKey, p_duplicate_key: duplicateKey, p_token: reservationToken,
+      }).abortSignal(AbortSignal.timeout(4000));
+      return !error && typeof data === "number" && Number.isInteger(data) ? data : null;
+    } catch { return null; }
+  }
+  const code = postgres ? await postgresOperation("reserve") : await redisEval(
+    cfg!, RATE_LUA, [tenantKey, contactKey, duplicateKey],
     [3600, 60, 4, reservationToken, 90]
   );
 
@@ -159,14 +173,15 @@ export async function reservePublicLeadSubmission(input: {
     allowed: true,
     async complete() {
       // Set duplicate suppression for 10 minutes only after DB insert success.
-      return (await redisEval(
-        cfg, COMMIT_LUA, [duplicateKey], [reservationToken, 600]
+      return (postgres ? await postgresOperation("complete") : await redisEval(
+        cfg!, COMMIT_LUA, [duplicateKey], [reservationToken, 600]
       )) === 1;
     },
     async release() {
       // A failed DB write must allow retry, but never delete another writer's
       // newer reservation. Counters still count attempted submissions.
-      await redisEval(cfg, RELEASE_LUA, [duplicateKey], [reservationToken]);
+      if (postgres) await postgresOperation("release");
+      else await redisEval(cfg!, RELEASE_LUA, [duplicateKey], [reservationToken]);
     },
   };
 }

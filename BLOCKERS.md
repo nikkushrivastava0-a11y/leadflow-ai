@@ -1,19 +1,21 @@
-# Release blockers — 2026-11-13 IST
+# LeadFlow AI — remaining external release blockers (2026-11-13 IST)
+
+## Completed engineering
+
+Actual local Next.js owner and public-form HTTP flows pass with official real Auth/JWT/PostgREST. The existing-PostgreSQL guard removes the need for a new Redis service. A default-disabled, test-key-only Razorpay backend and durable atomic test ledger are implemented. Exact atomic production cutover/recovery and real synthetic pg_dump/restore rehearsal are prepared.
 
 ## Production remains NO-GO
 
-1. Fresh read-only audit: `clients.owner_user_id` is absent, hardened owner policies are absent, broad anon grants remain. RLS being enabled does not prove isolation. Current database is incompatible with candidate owner-scope lookups.
-2. There are 94 leads, including 39 unresolved (5 unknown-business-slug +34 unprovisioned legacy). Another 55 are reviewable, not ownership-approved. No assignments or records were changed. All 7 current client emails uniquely match confirmed Auth accounts; the prior unmatched-client blocker is no longer current, but email matching alone is not approval.
-3. No existing authorized synthetic Supabase Auth account credentials/free test environment were available. The original SQL harness models auth.uid(); a separate official local Auth/PostgREST harness now passes real signed-JWT isolation, expiry and session refresh/logout checks. Hosted project settings and actual deployed Next.js session/customer flow remain unverified. Do not test destructive cross-account operations on customer data or create accounts that send emails under this scope.
-4. Vercel environment key-name inventory only (values not decrypted) lacks `SUPABASE_SECRET_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `LEAD_GUARD_HASH_SECRET`, `LEADFLOW_PUBLIC_ORIGIN`, `AUTH_CALLBACK_ORIGIN` and the new `PUBLIC_ENQUIRIES_ENABLED` gate. No paid Redis/staging/provider was created. Intake stays disabled. A free existing limiter must be available or a separately reviewed free alternative is needed; creating a billable service is forbidden.
-5. No automated business provisioning: pilot workspaces need privately verified manual provisioning. Do not claim a workspace from self-supplied email/slug/metadata.
-6. Follow-ups need the nullable column and narrow grant bundled in the owner-RLS proposal. No migration was applied.
-7. Billing intentionally returns HTTP503. An order ledger, captured amount/currency and owner verification, idempotent webhooks, durable entitlements and real provider test-mode acceptance are not implemented/verified. A signature helper alone cannot unblock billing.
+1. Seven current business owner mappings require explicit private provenance. Thirty-nine historical lead records require an exact privately approved quarantine manifest. No owner is guessed, reassigned or claimed from email equality; no real row was moved/deleted. The current aggregate baseline remains94 leads:39 unresolved and55 reviewable, not exposure-approved.
+2. The actual production database has no owner_user_id/follow-up columns or reviewed owner policies and retains broad anon grants. Prepared SQL is not an applied migration.
+3. A real encrypted production backup and successful disposable restore receipt are unavailable. The connected Supabase surface has no pg_dump export/database-password capability. Synthetic archives prove the procedure, not that customer data is backed up.
+4. The browser reaches Supabase's normal sign-in page. No existing authenticated dashboard session or server secret was available. SUPABASE_SECRET_KEY and database backup credentials must be configured through secure account tooling, never pasted in chat. No privileged key was retrieved by SQL or fabricated.
+5. Six preview-branch settings were configured: canonical public/callback origins, a fresh sensitive HMAC secret, LEAD_GUARD_PROVIDER=postgres, PUBLIC_ENQUIRIES_ENABLED=false and LEADFLOW_BILLING_MODE=disabled. No production environment was altered. The guard proposal and server key still need authorized hosted installation/configuration before intake can open.
+6. Local actual HTTP does not certify hosted Auth redirects, email/PKCE delivery, browser event handlers/mobile behavior or actual provider gateway semantics.
+7. Payment code now exists but actual Razorpay test credentials, webhook secret and server test catalogue are unavailable. Offline/provider fixtures and real local SQL tests are not actual Razorpay dashboard acceptance. No live mode, payment UI or real paid entitlement consumer is enabled.
 
-## Approval boundary
+## Concrete next inputs
 
-No production approval is requested yet: real JWT acceptance, private manifest review, a verified backup/restore plan and final release review must precede a concrete production approval request. Do not approve a blind migration or infer ownership.
+Use docs/security-atomic-cutover.md and the empty private-input template: reviewed client→Auth UUID mappings/provenance, exact quarantine IDs/digests, actual backup/restore receipt, exact final source SHA and maintenance window. Do not commit those private values. Secure hosted sign-in/configuration and genuine test-provider acceptance are needed before a release decision. A merge alone cannot close these gates.
 
-## Cost
-
-No paid plan, staging project, paid API call, charge, subscription, billable resource or outbound customer message was enabled by this work.
+No paid plan, paid staging/API call, charge, subscription, new billable resource or customer message was enabled. No production migration, main merge/promotion or customer-data mutation occurred.

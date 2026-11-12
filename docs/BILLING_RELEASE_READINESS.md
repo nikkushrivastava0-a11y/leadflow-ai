@@ -2,7 +2,11 @@
 
 Reviewed 2026-11-13 (Asia/Kolkata), from candidate source based on PR #54 (`c275277`).
 
-## Current result
+## Later implemented test backend
+
+The continued launch-blocker session added `/api/billing/checkout`, `/verify`, and `/webhook` with an OFF-by-default, test-key-only backend and durable ledger proposal. See `BILLING_TEST_IMPLEMENTATION.md` for current code and evidence. The audit below describes the original paused baseline; it must not be read as saying the new test backend is absent. Live-key billing, payment UI and paid-access activation remain unsupported/disabled.
+
+## Original paused baseline
 
 **Paid upgrades remain unavailable. No payment-ready billing implementation is claimed.**
 

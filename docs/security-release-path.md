@@ -48,7 +48,7 @@ Use an existing authorized free disposable environment. No paid Supabase branch 
 
 **Expected impact if separately approved later:** 39 rows become inaccessible to all ordinary business accounts while remaining intact in a restricted review area; the other 55 remain subject to verified owner policies. Counts must be rechecked at execution time rather than hard-coded. No owner is inferred or reassigned by quarantine. Old anonymous Data API access stops; public enquiries require the guarded server writer. Billing stays disabled.
 
-The two staging SQL scripts are deliberately separate review artifacts. They do not constitute an atomic production cutover package. Before any production action, prepare and review one production-specific transaction combining transfer, ownership approval and RLS/grant activation under maintenance; do not ship a gap between these operations or simply change the sentinel string to “production”.
+The two staging SQL scripts remain separate rehearsal artifacts. The later `production-atomic-cutover.sql` proposal now combines transfer, explicit privately approved UUID owner mappings and RLS/grant activation in one production-specific review transaction; see `docs/security-atomic-cutover.md`. It requires real backup/restore evidence and separate approval. Do not ship a gap between the older staging scripts or merely rename their sentinel to “production”.
 
 ## Business provisioning runbook
 

@@ -60,3 +60,8 @@ Do not point this at a development database containing work you want to preserve
 ## Limits that remain
 
 This closes the **local real signed-JWT/Data API authorization** gap. It does not verify the hosted Supabase project's JWT configuration, redirect allowlist, email confirmation delivery, actual session cookies in the deployed Next.js app, PKCE browser flow, public enquiry server action, Redis provider availability or end-to-end mobile journey. Hosted owner schema and 39 real unresolved records remain unchanged. Full production readiness still requires the private decisions, staging/app evidence and production approval described in `security-release-path.md`.
+
+
+## Optional actual Next application boundary
+
+Set `LEADFLOW_NEXT_FLOW=YES` to also build/start the checked-out Next.js app and test its real Proxy, SSR session cookies, owner scope, dashboard rendering and HTTP Server Actions against the same official Auth/PostgREST fixture. See `security-local-next-flow.md` for scope, prerequisites, observed checks and remaining browser/hosted/public-intake limitations. The default API-only runner remains available without compiling the app.

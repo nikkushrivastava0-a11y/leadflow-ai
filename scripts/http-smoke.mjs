@@ -59,6 +59,12 @@ try {
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.deepEqual(await response.json(), { error: "Paid upgrades are not available yet." });
   console.log("PASS HTTP 503 checkout remains disabled");
+  for (const action of ["checkout", "verify", "webhook"]) {
+    const result = await fetch(base + "/api/billing/" + action, { method: "POST", signal: AbortSignal.timeout(5000) });
+    assert.equal(result.status, 503);
+    assert.equal(result.headers.get("cache-control"), "no-store");
+    console.log(`PASS HTTP 503 test billing ${action} remains disabled`);
+  }
 } finally {
   server.kill("SIGTERM");
 }

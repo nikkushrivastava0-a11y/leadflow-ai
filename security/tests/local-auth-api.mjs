@@ -108,9 +108,9 @@ try{
  GRANT ALL ON public.clients,public.leads TO anon,authenticated;
  INSERT INTO public.clients VALUES(1,'synthetic-a','Synthetic A','owner-a@example.test'),(2,'synthetic-b','Synthetic B','owner-b@example.test');
  INSERT INTO public.leads(id,user_id,client_slug,name) VALUES
- ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1','${a.id}','synthetic-a','A own'),
- ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1','${b.id}','synthetic-b','B own'),
- ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2',NULL,'synthetic-a','A public');
+ ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','${a.id}','synthetic-a','A own'),
+ ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1','${b.id}','synthetic-b','B own'),
+ ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2',NULL,'synthetic-a','A public');
  `);
  sql(`
  INSERT INTO public.leads(id,user_id,name) SELECT md5('jwt-unresolved-'||i)::uuid,md5('unknown-owner-'||i)::uuid,'Synthetic quarantine' FROM generate_series(1,39)i;
@@ -180,7 +180,11 @@ try{
  const deniedRefresh=await request(authBase,'/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:refresh.data.refresh_token}});
  assert.ok(deniedRefresh.status>=400);
  pass('real Auth refresh and logout revoke further refresh; existing access-token expiry remains separate');
- console.log('PASS local official Auth/PostgREST JWT authorization rehearsal; hosted/browser/public-form flow remains unverified');
+ if(process.env.LEADFLOW_NEXT_FLOW==='YES'){
+  const {runNextApplicationFlow}=await import('./next-app-flow.mjs');
+  await runNextApplicationFlow({a,b,password,authBase,restBase,jwtSecret,sql,runtimeEnv});
+ }
+ console.log(process.env.LEADFLOW_PUBLIC_NEXT_FLOW==='YES'?'PASS local official Auth/PostgREST and actual Next owner/public HTTP flow; hosted/browser behavior remains unverified':'PASS local official Auth/PostgREST JWT authorization rehearsal; hosted/browser/public-form flow remains unverified');
 }catch(error){
  console.error('FAIL '+error.message);
  // Only coarse startup diagnostics; never dump complete Auth logs or responses.

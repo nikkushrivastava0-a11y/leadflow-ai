@@ -13,9 +13,15 @@
 - [x] Run actual built app unauthenticated HTTP smoke.
 - [x] Verify application candidate66f6c8e CI and READY preview; recheck final augmented test commit.
 - [x] Verify official local Auth-issued JWTs through actual PostgREST and exact RLS, including CRUD/expiry/logout and39-row quarantine.
-- [ ] Verify real Supabase two-account Auth/JWT/CRUD journey in an authorized free test environment.
+- [x] Verify actual local Next.js two-account HTTP customer journey with official Auth/JWT/PostgREST, real SSR cookies and generated Server Action IDs.
+- [x] Verify actual public form multipart action through CA/SAN-verified fixture HTTPS, real PostgreSQL guard, write, owner dashboard, receipt, duplicates and retry.
+- [x] Add existing-PostgreSQL shared spam guard with concurrent caps; no new Redis service.
+- [x] Implement OFF-by-default test-key-only payment backend and durable ledger/concurrent processing.
+- [x] Prepare exact atomic production cutover/recovery and verify a real pg_dump/restore on synthetic data.
+- [x] Configure preview-only canonical URLs, private hash secret, postgres provider and explicit closed intake/billing gates.
+- [ ] Verify hosted Supabase configuration and deployed two-account/browser/mobile journey.
 - [ ] Privately review exact 39-record isolation manifest and all business owner mappings.
 - [ ] Approve verified backup/restore and coordinated production migration/release.
-- [ ] Complete separately verified payment implementation/provider test acceptance before enabling paid upgrades.
+- [ ] Verify actual Razorpay test dashboard/capture/webhook delivery and hosted key/API acceptance before considering live billing.
 
-Production migrations, customer-data changes, merging main, promotion, live billing and outreach are excluded from this session's authorization.
+Production execution remains blocked by missing private owner/quarantine evidence, genuine production backup/restore evidence and secure hosted credentials. Do not infer these inputs from a generic continue request. No live billing or outreach is enabled.
