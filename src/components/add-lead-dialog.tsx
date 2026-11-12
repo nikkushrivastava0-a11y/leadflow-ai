@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { addLead } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -31,6 +32,10 @@ export function AddLeadDialog() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.email.trim() && !form.phone.trim()) {
+      toast.error("Enter an email address or phone number.");
+      return;
+    }
     setLoading(true);
 
     try {
@@ -71,6 +76,9 @@ export function AddLeadDialog() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               placeholder="John Doe"
+              autoComplete="name"
+              minLength={2}
+              maxLength={100}
               required
             />
           </div>
@@ -82,6 +90,8 @@ export function AddLeadDialog() {
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               placeholder="john@example.com"
+              autoComplete="email"
+              maxLength={254}
             />
           </div>
           <div className="space-y-2">
@@ -91,6 +101,9 @@ export function AddLeadDialog() {
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
               placeholder="+91 98765 43210"
+              type="tel"
+              autoComplete="tel"
+              maxLength={25}
             />
           </div>
           <div className="space-y-2">
@@ -111,12 +124,15 @@ export function AddLeadDialog() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="notes">Notes</Label>
-            <Input
+            <Textarea
               id="notes"
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
               placeholder="Interested in premium plan..."
+              maxLength={1000}
+              rows={3}
             />
+            <p className="text-right text-xs text-slate-500">{form.notes.length}/1000 characters</p>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={loading}>
