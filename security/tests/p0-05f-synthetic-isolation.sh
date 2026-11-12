@@ -74,9 +74,9 @@ $sql
 SQL
 }
 must_deny() {
- local label="$1" sql="$2"
+ local label="$1" role="$2" sql="$3"
  if psql -X -qAt -v ON_ERROR_STOP=1 <<SQL >/dev/null 2>&1
-SET ROLE $1;
+SET ROLE $role;
 $sql
 SQL
  then echo "FAIL: $label" >&2; exit 1; fi
@@ -90,7 +90,7 @@ assert_eq "owner B sees only own" 1 "$(as_owner '22222222-2222-2222-2222-2222222
 assert_eq "A cannot see B" 0 "$(as_owner '11111111-1111-1111-1111-111111111111' "SELECT count(*) FROM public.leads WHERE client_slug='b';")"
 assert_eq "B cannot see A" 0 "$(as_owner '22222222-2222-2222-2222-222222222222' "SELECT count(*) FROM public.leads WHERE client_slug='a';")"
 assert_eq "A cannot see quarantined IDs in public" 0 "$(as_owner '11111111-1111-1111-1111-111111111111' "SELECT count(*) FROM public.leads WHERE id::text LIKE 'cccccccc-%';")"
-must_deny "anon cannot read public leads" "SELECT count(*) FROM public.leads;"
+must_deny "anon cannot read public leads" anon "SELECT count(*) FROM public.leads;"
 # Direct authenticted use of private schema must be refused (no USAGE, no SELECT).
 if psql -X -qAt -v ON_ERROR_STOP=1 <<'SQL' >/dev/null 2>&1
 SET ROLE authenticated;
@@ -99,7 +99,7 @@ SELECT count(*) FROM private.leads_quarantine;
 SQL
 then echo 'FAIL: authenticated read quarantined records' >&2; exit 1; fi
 echo "PASS authenticated cannot read private quarantine"
-must_deny "anon cannot read private quarantine" "SELECT count(*) FROM private.leads_quarantine;"
+must_deny "anon cannot read private quarantine" anon "SELECT count(*) FROM private.leads_quarantine;"
 # Synthetic rollback rehearses restoring all original rows from the private quarantine.
 psql -X -v ON_ERROR_STOP=1 <<'SQL' >/dev/null
 BEGIN;
