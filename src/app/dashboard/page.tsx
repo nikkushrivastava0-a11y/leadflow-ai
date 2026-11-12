@@ -7,7 +7,15 @@ import { LeadsTable } from "@/components/leads-table";
 import { UpgradeButton } from "@/components/upgrade-button";
 import { Lead } from "@/lib/types";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const params = await searchParams;
+  const requestedPage = typeof params.page === "string" && /^[1-9]\\d{0,5}$/.test(params.page)
+    ? Number(params.page) : 1;
+  const pageSize = 20;
   const scope = await resolveOwnerScope();
 
   if (!scope.ok) {
@@ -31,13 +39,17 @@ export default async function DashboardPage() {
     scope.supabase.from("leads").select("id", { count: "exact", head: true }).or(ownerFilter).eq("status", "won"),
   ]);
 
+  const totalPages = Math.max(1, Math.ceil((totalResult.count ?? 0) / pageSize));
+  const currentPage = Math.min(requestedPage, totalPages);
   const { data: directLeads, error: leadsError } = await scope.supabase
     .from("leads")
     .select("*")
     .or(
       `client_slug.eq.${scope.slug},and(client_slug.is.null,user_id.eq.${scope.userId})`
     )
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range((currentPage - 1) * pageSize, currentPage * pageSize - 1);
 
   if (leadsError || totalResult.error || hotResult.error || wonResult.error) {
     console.error("Owner dashboard load failed:", leadsError?.code || totalResult.error?.code || hotResult.error?.code || wonResult.error?.code || "unknown");
@@ -128,14 +140,7 @@ export default async function DashboardPage() {
             <h2 className="text-xl font-semibold">Your Leads</h2>
             <AddLeadDialog />
           </div>
-          {totalLeads > leads.length ? (
-            <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
-              Showing the latest {leads.length} of {totalLeads} leads. Search and filters currently
-              apply only to loaded rows. Full server-side pagination is required before relying
-              on this list for larger businesses.
-            </p>
-          ) : null}
-          <LeadsTable leads={leads} />
+          <LeadsTable leads={leads} page={currentPage} totalPages={totalPages} totalLeads={totalLeads} />
         </div>
       </main>
     </div>
