@@ -13,7 +13,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const params = await searchParams;
-  const requestedPage = typeof params.page === "string" && /^[1-9]\\d{0,5}$/.test(params.page)
+  const requestedPage = typeof params.page === "string" && /^[1-9]\d{0,5}$/.test(params.page)
     ? Number(params.page) : 1;
   const pageSize = 20;
   const scope = await resolveOwnerScope();
