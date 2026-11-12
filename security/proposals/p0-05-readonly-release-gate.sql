@@ -83,6 +83,15 @@ schema_metrics AS (
         AND (c.relrowsecurity IS FALSE)
     ) AS rls_disabled,
     EXISTS (
+      SELECT 1 FROM pg_policies p
+      WHERE p.schemaname='public' AND p.tablename IN ('clients','leads')
+        AND NOT (
+          (p.tablename='clients' AND p.policyname='clients_owner_select')
+          OR (p.tablename='leads' AND p.policyname IN
+            ('leads_owner_select','leads_owner_insert','leads_owner_update','leads_owner_delete'))
+        )
+    ) AS unexpected_policies,
+    EXISTS (
       SELECT 1 FROM pg_class cls
       JOIN pg_namespace ns ON ns.oid = cls.relnamespace
       WHERE ns.nspname = 'public' AND cls.relname IN ('clients','leads')
@@ -107,9 +116,9 @@ SELECT
     AND duplicate_client_emails=0 AND flagged_leads=0
     THEN 'PASS' ELSE 'BLOCKED' END AS ownership_preflight,
   CASE WHEN has_owner_user_id AND reviewed_policy_count=5
-    AND NOT rls_disabled AND NOT broad_anon_grants
+    AND NOT rls_disabled AND NOT unexpected_policies AND NOT broad_anon_grants
     THEN 'PASS' ELSE 'BLOCKED' END AS hardened_schema,
   unmatched_clients, duplicate_auth_emails, duplicate_client_emails,
   flagged_leads, has_owner_user_id, reviewed_policy_count,
-  rls_disabled, broad_anon_grants
+  rls_disabled, unexpected_policies, broad_anon_grants
 FROM ownership_metrics CROSS JOIN schema_metrics;
