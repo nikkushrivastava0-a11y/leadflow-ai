@@ -99,6 +99,16 @@ INSERT INTO public.leads(id,user_id,client_slug,name) VALUES
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2','22222222-2222-2222-2222-222222222222',NULL,'B legacy');
 SQL
 
+echo "1b. Read-only ownership audit reports aggregate metrics without changing schema"
+audit_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-ownership-audit.sql)
+assert_result 2 "$(printf '%s\\n' "$audit_output" | awk -F'|' '$1=="clients_total" {print $2}')" "audited synthetic clients"
+assert_result 5 "$(printf '%s\\n' "$audit_output" | awk -F'|' '$1=="leads_total" {print $2}')" "audited synthetic leads"
+assert_result 0 "$(printf '%s\\n' "$audit_output" | awk -F'|' '$1=="clients_without_unique_confirmed_owner" {print $2}')" "confirmed owners reviewed"
+assert_result 0 "$(printf '%s\\n' "$audit_output" | awk -F'|' '$1=="leads_with_unknown_business_slug" {print $2}')" "no orphan business slug"
+assert_result 0 "$(printf '%s\\n' "$audit_output" | awk -F'|' '$1=="legacy_leads_without_provisioned_owner" {print $2}')" "legacy ownership reviewed"
+missing=$(psql -X -qAt -v ON_ERROR_STOP=1 -c "select count(*) from information_schema.columns where table_schema='public' and table_name='clients' and column_name='owner_user_id';")
+assert_result 0 "$missing" "aggregate audit does not mutate schema"
+
 echo "2. No approval sentinel must prevent any schema changes"
 if psql -X -v ON_ERROR_STOP=1 -f "$MIGRATION" >/dev/null 2>&1; then
   echo "FAIL: RLS migration ran without review" >&2
