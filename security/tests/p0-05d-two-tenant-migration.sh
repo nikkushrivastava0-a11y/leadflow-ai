@@ -164,6 +164,20 @@ if psql -X -qAt -v ON_ERROR_STOP=1 -c "SET ROLE anon; truncate public.leads;" >/
   exit 1
 fi
 
+echo "6b. Anonymous writes and direct client provisioning must stay blocked"
+if psql -X -qAt -v ON_ERROR_STOP=1 -c "SET ROLE anon; INSERT INTO public.leads (user_id, client_slug, name) VALUES ('$A','business-a','Forbidden public write');" >/dev/null 2>&1; then
+  echo "FAIL: anonymous lead insert permitted" >&2
+  exit 1
+fi
+if psql -X -qAt -v ON_ERROR_STOP=1 -c "SET ROLE anon; UPDATE public.leads SET status='won' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';" >/dev/null 2>&1; then
+  echo "FAIL: anonymous lead update permitted" >&2
+  exit 1
+fi
+if psql -X -qAt -v ON_ERROR_STOP=1 -c "SET ROLE anon; DELETE FROM public.leads WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';" >/dev/null 2>&1; then
+  echo "FAIL: anonymous lead delete permitted" >&2
+  exit 1
+fi
+
 echo "7. Owner A and B may view ONLY their own business and lead rows"
 assert_result 1 "$(query_as "$A" "SELECT count(*) FROM public.clients;")" "owner A client profile"
 assert_result 1 "$(query_as "$B" "SELECT count(*) FROM public.clients;")" "owner B client profile"
@@ -191,6 +205,11 @@ assert_result 1 "$(query_as "$A" "WITH changed AS (DELETE FROM public.leads WHER
 echo "9. Owner A may create only own lead; prevent ownership reassignment"
 assert_result 1 "$(query_as "$A" "WITH added AS (INSERT INTO public.leads(user_id,client_slug,name) VALUES ('$A','business-a','A manual') RETURNING id) SELECT count(*) FROM added;")" "A inserts own"
 should_fail_as "$A" "INSERT INTO public.leads(user_id,client_slug,name) VALUES ('$A','business-b','Cross-business attack');"
+should_fail_as "$A" "INSERT INTO public.leads(user_id,client_slug,name) VALUES ('$B','business-a','Spoofed owner');"
+should_fail_as "$A" "UPDATE public.leads SET notes='Attempted unauthorized field change' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';"
+should_fail_as "$A" "UPDATE public.leads SET score=100 WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';"
+should_fail_as "$A" "UPDATE public.leads SET user_id='$B' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';"
+should_fail_as "$A" "INSERT INTO public.clients (id,slug,business_name,owner_email) VALUES (99,'forged','Forged','owner-a@example.test');"
 should_fail_as "$A" "UPDATE public.leads SET client_slug='business-b' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';"
 should_fail_as "$A" "DELETE FROM public.clients WHERE slug='business-a';"
 
