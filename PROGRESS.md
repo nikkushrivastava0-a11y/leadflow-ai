@@ -30,6 +30,10 @@ Fresh Supabase inspection was read-only, schema/aggregate only: 7 clients, 94 le
 
 On free disposable PostgreSQL 17.11, the exact owner migration harness passed owner A/B CRUD restrictions, privilege restrictions and follow-up persistence/clearing. A separate fresh database passed exact reviewed-ID quarantine and rollback: 55 public +39 private rows conserved with full-row checksum checks, anon/authenticated/service-role quarantine reads denied, changed-data rollback rejected, and 94-row restore completed under restrictive access hold. The CI runs the original generic synthetic94 harness first and each exact proposal harness in its own fresh database. No production SQL was run.
 
+## Real local Auth/JWT evidence
+
+Official pinned Supabase Auth2.197.0 and PostgREST16.5 were run on loopback with PostgreSQL17.11 and synthetic identities. Actual signup/password login/user validation, signed JWT A/B isolation, anonymous/forged/expired rejection, own CRUD/status/follow-up/readback/clear, cross-owner write denial, refresh/logout and refresh denial passed. Exact39-row quarantine stayed inaccessible through the real API. Both local trust and separate SCRAM password configurations were verified. No SMTP, real provider credentials or hosted environment were used. CI now downloads checksum-pinned official archives and repeats this in a fresh database. See docs/security-local-auth-jwt.md. Hosted browser/public-form/platform acceptance is still blocked.
+
 ## Pending final evidence
 
 Final source SHA, PR, CI and preview evidence are recorded in the candidate PR description and checked after publishing. See BLOCKERS.md for hard release gates. No production merge/promotion/migration or customer data mutation is authorized.

@@ -11,7 +11,8 @@
 - [x] Bundle reviewable owner-RLS, quarantine and restrictive rollback proposals.
 - [x] Run offline regressions, lint, typecheck and production build.
 - [x] Run actual built app unauthenticated HTTP smoke.
-- [ ] Verify final branch GitHub CI and Vercel preview at exact commit.
+- [x] Verify application candidate66f6c8e CI and READY preview; recheck final augmented test commit.
+- [x] Verify official local Auth-issued JWTs through actual PostgREST and exact RLS, including CRUD/expiry/logout and39-row quarantine.
 - [ ] Verify real Supabase two-account Auth/JWT/CRUD journey in an authorized free test environment.
 - [ ] Privately review exact 39-record isolation manifest and all business owner mappings.
 - [ ] Approve verified backup/restore and coordinated production migration/release.

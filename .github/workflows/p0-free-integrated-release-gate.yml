@@ -55,6 +55,19 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - name: Download pinned official local Auth and PostgREST
+        run: |
+          mkdir -p "$RUNNER_TEMP/leadflow-jwt/bin"
+          curl --fail --location --retry 2 --output "$RUNNER_TEMP/leadflow-jwt/auth.tar.xz" https://github.com/supabase/auth/releases/download/v2.197.0/auth-v2.197.0-amd64.tar.xz
+          curl --fail --location --retry 2 --output "$RUNNER_TEMP/leadflow-jwt/postgrest.tar.xz" https://github.com/PostgREST/postgrest/releases/download/v16.5/postgrest-v16.5-linux-static-x86-64.tar.xz
+          printf '%s  %s\n' b5c2991d1df760c9b099c1c2395a94bd1c2f83ed58901934921997179dc9f7ea "$RUNNER_TEMP/leadflow-jwt/auth.tar.xz" | sha256sum --check
+          printf '%s  %s\n' 5099e7ada38f9f6846cd87c14c5f158b7c165f1e9959665ad412e61f4dceba95 "$RUNNER_TEMP/leadflow-jwt/postgrest.tar.xz" | sha256sum --check
+          tar --extract --xz --no-same-owner --file "$RUNNER_TEMP/leadflow-jwt/auth.tar.xz" --directory "$RUNNER_TEMP/leadflow-jwt/bin" auth
+          tar --extract --xz --no-same-owner --file "$RUNNER_TEMP/leadflow-jwt/postgrest.tar.xz" --directory "$RUNNER_TEMP/leadflow-jwt/bin" postgrest
+      - name: Real local Supabase Auth JWT and PostgREST owner isolation
+        run: |
+          createdb leadflow_jwt_rehearsal
+          PGDATABASE=leadflow_jwt_rehearsal LEADFLOW_AUTH_BIN="$RUNNER_TEMP/leadflow-jwt/bin/auth" LEADFLOW_POSTGREST_BIN="$RUNNER_TEMP/leadflow-jwt/bin/postgrest" node security/tests/local-auth-api.mjs
       - name: Install locked packages
         run: npm ci
       - name: Offline backend/CRM/form/Auth/AI safety regressions
