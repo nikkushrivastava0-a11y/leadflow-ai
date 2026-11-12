@@ -105,8 +105,9 @@ BEGIN
     RAISE EXCEPTION 'Orphan business slug on lead: reconcile before enabling RLS';
   END IF;
 
-  -- If a valid UUID and verified business slug disagree, migration must
-  -- not guess ownership. Such records need private manual reconciliation.
+  -- Every non-NULL lead owner UUID must agree with the verified business.
+  -- Reject even UUIDs missing from auth.users: an orphan user_id is not
+  -- evidence of ownership, and public-form submissions should use NULL.
   IF EXISTS (
     SELECT 1 FROM public.leads l
     JOIN public.clients c ON c.slug = l.client_slug
@@ -115,7 +116,6 @@ BEGIN
      AND verified_owner.email_confirmed_at IS NOT NULL
     WHERE l.user_id IS NOT NULL
       AND l.user_id <> verified_owner.id
-      AND EXISTS (SELECT 1 FROM auth.users valid_user WHERE valid_user.id=l.user_id)
   ) THEN
     RAISE EXCEPTION 'Conflicting lead owner and business slug: private review required';
   END IF;
