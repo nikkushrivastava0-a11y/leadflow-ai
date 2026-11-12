@@ -40,7 +40,7 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false });
 
   if (leadsError || totalResult.error || hotResult.error || wonResult.error) {
-    console.error("Owner dashboard load failed:", leadsError.code || "unknown");
+    console.error("Owner dashboard load failed:", leadsError?.code || totalResult.error?.code || hotResult.error?.code || wonResult.error?.code || "unknown");
     return (
       <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-3 px-6">
         <h1 className="text-2xl font-semibold text-slate-900">Leads unavailable</h1>
