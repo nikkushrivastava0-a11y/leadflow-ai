@@ -106,6 +106,7 @@ assert_result 5 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="leads_total" 
 assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="clients_without_unique_confirmed_owner" {print $2}')" "confirmed owners reviewed"
 assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="leads_with_unknown_business_slug" {print $2}')" "no orphan business slug"
 assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="legacy_leads_without_provisioned_owner" {print $2}')" "legacy ownership reviewed"
+assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="distinct_leads_requiring_reconciliation" {print $2}')" "clean baseline has zero distinct blockers"
 missing=$(psql -X -qAt -v ON_ERROR_STOP=1 -c "select count(*) from information_schema.columns where table_schema='public' and table_name='clients' and column_name='owner_user_id';")
 assert_result 0 "$missing" "aggregate audit does not mutate schema"
 
@@ -115,10 +116,12 @@ psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.leads(id,user_id,client_slug,n
 audit_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-ownership-audit.sql)
 assert_result 1 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="leads_with_unknown_business_slug" {print $2}')" "detect orphan business slug"
 assert_result 1 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="legacy_leads_without_provisioned_owner" {print $2}')" "detect unprovisioned legacy owner"
+assert_result 2 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="distinct_leads_requiring_reconciliation" {print $2}')" "distinct blockers count each synthetic lead once"
 psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM public.leads WHERE id IN ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee4','eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee5'); DELETE FROM auth.users WHERE id='44444444-4444-4444-4444-444444444444';" >/dev/null
 audit_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-ownership-audit.sql)
 assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="leads_with_unknown_business_slug" {print $2}')" "cleanup removes orphan warning"
 assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="legacy_leads_without_provisioned_owner" {print $2}')" "cleanup removes legacy warning"
+assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="distinct_leads_requiring_reconciliation" {print $2}')" "synthetic cleanup leaves no distinct blockers"
 
 echo "2. No approval sentinel must prevent any schema changes"
 if psql -X -v ON_ERROR_STOP=1 -f "$MIGRATION" >/dev/null 2>&1; then
