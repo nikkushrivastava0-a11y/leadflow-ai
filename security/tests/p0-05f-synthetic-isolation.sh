@@ -100,6 +100,20 @@ SQL
 then echo 'FAIL: authenticated read quarantined records' >&2; exit 1; fi
 echo "PASS authenticated cannot read private quarantine"
 must_deny "anon cannot read private quarantine" anon "SELECT count(*) FROM private.leads_quarantine;"
+# Unauthorized write/DDL regression: no actor may manipulate quarantined data.
+must_deny "anon cannot insert public lead" anon "INSERT INTO public.leads VALUES ('dddddddd-dddd-dddd-dddd-ddddddddddd1','a',NULL,'forbidden');"
+must_deny "anon cannot update public lead" anon "UPDATE public.leads SET name='forbidden' WHERE client_slug='a';"
+must_deny "anon cannot delete public lead" anon "DELETE FROM public.leads WHERE client_slug='a';"
+must_deny "anon cannot truncate public leads" anon "TRUNCATE TABLE public.leads;"
+must_deny "authenticated cannot insert into quarantine" authenticated "INSERT INTO private.leads_quarantine VALUES ('dddddddd-dddd-dddd-dddd-ddddddddddd2','a',NULL,'forbidden');"
+must_deny "authenticated cannot update quarantine" authenticated "UPDATE private.leads_quarantine SET name='forbidden';"
+must_deny "authenticated cannot delete quarantine" authenticated "DELETE FROM private.leads_quarantine;"
+must_deny "authenticated cannot truncate quarantine" authenticated "TRUNCATE TABLE private.leads_quarantine;"
+must_deny "authenticated cannot insert public lead with select-only grants" authenticated "INSERT INTO public.leads VALUES ('dddddddd-dddd-dddd-dddd-ddddddddddd3','b',NULL,'forbidden');"
+must_deny "authenticated cannot delete public lead with select-only grants" authenticated "DELETE FROM public.leads;"
+assert_eq "deny tests preserve public row count" 2 "$(get_count 'SELECT count(*) FROM public.leads')"
+assert_eq "deny tests preserve quarantined row count" 3 "$(get_count 'SELECT count(*) FROM private.leads_quarantine')"
+
 # Synthetic rollback rehearses restoring all original rows from the private quarantine.
 psql -X -v ON_ERROR_STOP=1 <<'SQL' >/dev/null
 BEGIN;
