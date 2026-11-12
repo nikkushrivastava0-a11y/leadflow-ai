@@ -90,22 +90,26 @@ function LeadStatusSelect({ lead }: { lead: Lead }) {
   );
 }
 
-export function LeadsTable({ leads }: { leads: Lead[] }) {
+export function LeadsTable({ leads, page, totalPages, totalLeads }: {
+  leads: Lead[]; page: number; totalPages: number; totalLeads: number;
+}) {
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [page, setPage] = useState(1);
   const pageSize = 20;
+  function navigatePage(next: number) {
+    if (next < 1 || next > totalPages) return;
+    router.push(`/dashboard?page=${next}`);
+  }
   const query = search.trim().toLocaleLowerCase();
   const filtered = leads.filter((lead) =>
     (statusFilter === "all" || lead.status === statusFilter) &&
     (!query || [lead.name, lead.email, lead.phone, lead.source]
       .some((value) => (value || "").toLocaleLowerCase().includes(query)))
   );
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const visible = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const visible = filtered;
+  const isFiltered = Boolean(query) || statusFilter !== "all";
 
   async function handleDelete(id: string, name: string) {
     if (deletingId || !window.confirm(`Permanently delete ${name}'s lead? This cannot be undone.`)) return;
@@ -126,7 +130,7 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
     }
   }
 
-  if (leads.length === 0) {
+  if (totalLeads === 0) {
     return (
       <div className="rounded-lg border border-dashed p-12 text-center">
         <p className="text-slate-500">No leads yet.</p>
@@ -143,14 +147,14 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
         <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
           Search leads
           <input type="search" value={search}
-            onChange={(event) => { setSearch(event.target.value); setPage(1); }}
+            onChange={(event) => { setSearch(event.target.value); }}
             placeholder="Name, email, phone or source"
             className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal sm:w-72" />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
           Status
           <select value={statusFilter}
-            onChange={(event) => { setStatusFilter(event.target.value); setPage(1); }}
+            onChange={(event) => { setStatusFilter(event.target.value); }}
             className="rounded-md border border-slate-300 bg-white px-3 py-2 font-normal">
             <option value="all">All statuses</option>
             {LEAD_STATUSES.map((status) => (
@@ -163,12 +167,17 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => { setSearch(""); setStatusFilter("all"); setPage(1); }}
+            onClick={() => { setSearch(""); setStatusFilter("all"); }}
           >
             Clear filters
           </Button>
         ) : null}
       </div>
+      {isFiltered ? (
+        <p className="px-4 text-xs text-amber-800" role="status">
+          Search and status filters apply to this page only. Clear filters or navigate pages to browse other leads.
+        </p>
+      ) : null}
       <div className="overflow-x-auto">
       <Table>
         <TableHeader>
@@ -220,12 +229,12 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-slate-600">
         <span role="status">
-          Showing {filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} of {filtered.length} matching leads
+          Showing {leads.length === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalLeads)} of {totalLeads} leads{isFiltered ? ` (${filtered.length} match on this page)` : ""}
         </span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>Previous</Button>
-          <span aria-label="Current page">Page {currentPage} of {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>Next</Button>
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => navigatePage(page - 1)}>Previous</Button>
+          <span aria-label="Current page">Page {page} of {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => navigatePage(page + 1)}>Next</Button>
         </div>
       </div>
     </div>
