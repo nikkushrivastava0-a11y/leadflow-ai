@@ -139,6 +139,19 @@ if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_
 fi
 psql -X -v ON_ERROR_STOP=1 -c "delete from public.leads where id='cccccccc-cccc-cccc-cccc-ccccccccccc1';" >/dev/null
 
+echo "4a. A confirmed Auth user without a provisioned workspace cannot own legacy leads"
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO auth.users(id,email,email_confirmed_at) VALUES ('33333333-3333-3333-3333-333333333333','unprovisioned@example.test',now());" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.leads(id,user_id,client_slug,name) VALUES ('ffffffff-ffff-ffff-ffff-fffffffffff1','33333333-3333-3333-3333-333333333333',NULL,'Unprovisioned legacy lead');" >/dev/null
+legacy_output=$(psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" 2>&1) && {
+  echo "FAIL: migration accepted a legacy lead owned by unprovisioned Auth user" >&2
+  exit 1
+}
+if [[ "$legacy_output" != *"Unverified or unprovisioned legacy lead owner"* ]]; then
+  echo "FAIL: migration failed for unexpected reason in legacy-owner test" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM public.leads WHERE id='ffffffff-ffff-ffff-ffff-fffffffffff1';" >/dev/null
+
 echo "4b. A valid Auth UUID does not make an unknown non-NULL business slug safe"
 psql -X -v ON_ERROR_STOP=1 -c "insert into public.leads (id,user_id,client_slug,name) values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1','$A','missing-business','Orphan synthetic slug');" >/dev/null
 orphan_output=$(psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" 2>&1) && {
@@ -199,6 +212,12 @@ assert_result 3 "$(query_as "$A" "SELECT count(*) FROM public.leads;")" "owner A
 assert_result 2 "$(query_as "$B" "SELECT count(*) FROM public.leads;")" "owner B leads including legacy"
 assert_result 0 "$(query_as "$A" "SELECT count(*) FROM public.leads WHERE client_slug='business-b';")" "A cannot view B"
 assert_result 0 "$(query_as "$B" "SELECT count(*) FROM public.leads WHERE client_slug='business-a';")" "B cannot view A"
+
+echo "7b. An authenticated but unprovisioned user cannot see legacy NULL-slug leads"
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.leads(id,user_id,client_slug,name) VALUES ('ffffffff-ffff-ffff-ffff-fffffffffff1','33333333-3333-3333-3333-333333333333',NULL,'Post-migration synthetic orphan');" >/dev/null
+assert_result 0 "$(query_as "33333333-3333-3333-3333-333333333333" "SELECT count(*) FROM public.leads WHERE id='ffffffff-ffff-ffff-ffff-fffffffffff1';")" "unprovisioned user denied legacy read"
+psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM public.leads WHERE id='ffffffff-ffff-ffff-ffff-fffffffffff1';" >/dev/null
+
 
 echo "8. Conflicting owner UUID must NEVER reveal another business slug"
 psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.leads (id,user_id,client_slug,name) VALUES ('dddddddd-dddd-dddd-dddd-ddddddddddd1','$A','business-b','Conflicted synthetic lead');" >/dev/null
