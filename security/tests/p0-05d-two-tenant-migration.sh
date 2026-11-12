@@ -182,6 +182,12 @@ assert_result 1 "$(query_as "$A" "WITH changed AS (UPDATE public.leads SET statu
 assert_result 0 "$(query_as "$A" "WITH changed AS (UPDATE public.leads SET status='contacted' WHERE id='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1' RETURNING id) SELECT count(*) FROM changed;")" "A cannot update B"
 assert_result 0 "$(query_as "$B" "WITH changed AS (DELETE FROM public.leads WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1' RETURNING id) SELECT count(*) FROM changed;")" "B cannot delete A"
 
+echo "8b. Public-form rows with NULL user_id remain tenant-owned for updates and deletes"
+assert_result 1 "$(query_as "$A" "WITH changed AS (UPDATE public.leads SET status='qualified' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2' RETURNING id) SELECT count(*) FROM changed;")" "A can update own public lead"
+assert_result 0 "$(query_as "$B" "WITH changed AS (UPDATE public.leads SET status='won' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2' RETURNING id) SELECT count(*) FROM changed;")" "B cannot update A public lead"
+assert_result 0 "$(query_as "$B" "WITH changed AS (DELETE FROM public.leads WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2' RETURNING id) SELECT count(*) FROM changed;")" "B cannot delete A public lead"
+assert_result 1 "$(query_as "$A" "WITH changed AS (DELETE FROM public.leads WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2' RETURNING id) SELECT count(*) FROM changed;")" "A can delete own public lead"
+
 echo "9. Owner A may create only own lead; prevent ownership reassignment"
 assert_result 1 "$(query_as "$A" "WITH added AS (INSERT INTO public.leads(user_id,client_slug,name) VALUES ('$A','business-a','A manual') RETURNING id) SELECT count(*) FROM added;")" "A inserts own"
 should_fail_as "$A" "INSERT INTO public.leads(user_id,client_slug,name) VALUES ('$A','business-b','Cross-business attack');"
