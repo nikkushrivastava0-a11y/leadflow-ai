@@ -164,6 +164,16 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
             ))}
           </select>
         </label>
+        {(search || statusFilter !== "all") ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => { setSearch(""); setStatusFilter("all"); setPage(1); }}
+          >
+            Clear filters
+          </Button>
+        ) : null}
       </div>
       <div className="overflow-x-auto">
       <Table>
