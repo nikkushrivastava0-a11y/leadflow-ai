@@ -36,7 +36,7 @@ export async function getLeads() {
 
   if (error) {
     console.error("Owner lead listing failed:", error.code || "unknown");
-    return [];
+    throw new Error("Lead listing is unavailable. Please retry.");
   }
 
   return data || [];
