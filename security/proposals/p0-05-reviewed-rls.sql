@@ -40,6 +40,31 @@ BEGIN
     RAISE EXCEPTION 'Unmatched client owner: resolve in a private admin workflow';
   END IF;
 
+  -- A one-time email backfill must be unambiguous on BOTH sides.
+  -- A duplicate verified Auth email could otherwise select an arbitrary UUID
+  -- in UPDATE ... FROM; duplicate client owner emails cannot satisfy a
+  -- one-workspace-per-owner mapping. Abort instead of choosing a record.
+  IF EXISTS (
+    SELECT 1 FROM auth.users u
+    WHERE u.email_confirmed_at IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM public.clients c
+        WHERE lower(trim(c.owner_email)) = lower(trim(u.email))
+      )
+    GROUP BY lower(trim(u.email))
+    HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'Ambiguous verified Auth email: resolve duplicate identities privately';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.clients c
+    GROUP BY lower(trim(c.owner_email))
+    HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'Duplicate business owner email: review one-owner-one-workspace mapping';
+  END IF;
+
   IF EXISTS (
     SELECT 1 FROM public.leads l
     LEFT JOIN public.clients c ON c.slug=l.client_slug
