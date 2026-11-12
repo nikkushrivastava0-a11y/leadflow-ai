@@ -1,0 +1,36 @@
+name: P0-05g synthetic 94-record tenant isolation
+on:
+  push:
+    branches: [security/p0-05g-free-94-record-regression-20261112]
+  pull_request:
+    branches: [security/p0-05f-synthetic-isolation-20261112]
+permissions:
+  contents: read
+jobs:
+  synthetic-94:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: postgres
+      PGPASSWORD: synthetic-ci-only
+      LEADFLOW_SYNTHETIC_ONLY: YES
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run synthetic 94-record two-tenant isolation and rollback
+        run: bash security/tests/p0-05g-94-record-isolation.sh
