@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lead, LEAD_STATUSES } from "@/lib/types";
 import { deleteLead, updateLeadStatus } from "@/lib/actions";
@@ -45,12 +45,6 @@ function LeadStatusSelect({ lead }: { lead: Lead }) {
   const router = useRouter();
   const [status, setStatus] = useState(lead.status);
   const [saving, setSaving] = useState(false);
-
-  // A dashboard refresh can bring newer server state without remounting the
-  // row. Reconcile the selector unless a user mutation is still in flight.
-  useEffect(() => {
-    if (!saving) setStatus(lead.status);
-  }, [lead.status, saving]);
 
   async function changeStatus(nextStatus: string) {
     if (saving || nextStatus === status) return;
@@ -196,7 +190,7 @@ export function LeadsTable({ leads }: { leads: Lead[] }) {
               <TableCell>{lead.phone || "—"}</TableCell>
               <TableCell className="capitalize">{lead.source}</TableCell>
               <TableCell>
-                <LeadStatusSelect lead={lead} />
+                <LeadStatusSelect key={`${lead.id}:${lead.status}`} lead={lead} />
               </TableCell>
               <TableCell>
                 <Badge variant="secondary" className={scoreColor(lead.score)}>
