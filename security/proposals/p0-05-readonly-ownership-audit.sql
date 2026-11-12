@@ -65,4 +65,8 @@ UNION ALL SELECT 'leads_with_unknown_business_slug', (SELECT count(*) FROM lead_
 UNION ALL SELECT 'legacy_leads_without_provisioned_owner', (SELECT count(*) FROM lead_review WHERE unprovisioned_legacy)
 UNION ALL SELECT 'business_leads_with_conflicting_owner_uuid', (SELECT count(*) FROM lead_review WHERE mismatched_business_owner)
 UNION ALL SELECT 'business_leads_with_ambiguous_owner', (SELECT count(*) FROM lead_review WHERE ambiguous_slug_owner)
+-- Count each affected lead once even when multiple flags apply; avoid summing overlapping metrics.
+UNION ALL SELECT 'distinct_leads_requiring_reconciliation',
+  (SELECT count(*) FROM lead_review
+   WHERE orphan_slug OR unprovisioned_legacy OR mismatched_business_owner OR ambiguous_slug_owner)
 ORDER BY metric;
