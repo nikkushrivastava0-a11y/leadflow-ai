@@ -77,6 +77,23 @@ BEGIN
     RAISE EXCEPTION 'Ambiguous legacy leads: reconcile ownership without guessing';
   END IF;
 
+  -- Legacy rows without a business slug must belong to a confirmed Auth
+  -- identity that maps to a reviewed workspace. Existence in auth.users alone
+  -- is insufficient: unconfirmed or unprovisioned users must not gain direct
+  -- Data API access to legacy enquiries.
+  IF EXISTS (
+    SELECT 1 FROM public.leads l
+    WHERE l.client_slug IS NULL AND NOT EXISTS (
+      SELECT 1 FROM auth.users u
+      JOIN public.clients c
+        ON lower(trim(c.owner_email)) = lower(trim(u.email))
+      WHERE u.id = l.user_id
+        AND u.email_confirmed_at IS NOT NULL
+    )
+  ) THEN
+    RAISE EXCEPTION 'Unverified or unprovisioned legacy lead owner: private reconciliation required';
+  END IF;
+
   -- A non-NULL slug must resolve to a real business even if user_id is valid.
   -- Otherwise the lead becomes invisible after RLS activates; user_id fallback
   -- is intentionally allowed only when client_slug is NULL.
@@ -189,6 +206,10 @@ CREATE POLICY leads_owner_select
     (
       user_id = (SELECT auth.uid())
       AND client_slug IS NULL
+      AND EXISTS (
+        SELECT 1 FROM public.clients c
+        WHERE c.owner_user_id = (SELECT auth.uid())
+      )
     )
   );
 
