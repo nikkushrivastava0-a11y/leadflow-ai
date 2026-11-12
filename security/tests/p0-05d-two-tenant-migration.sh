@@ -240,6 +240,14 @@ echo "6a. The approved synthetic migration satisfies both read-only release gate
 gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
 assert_result "PASS|PASS" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "synthetic migration passes hardened policy gate"
 
+echo "6b. Extra permissive RLS policy must block hardened release gate"
+psql -X -v ON_ERROR_STOP=1 -c "CREATE POLICY unexpected_all_leads ON public.leads FOR SELECT TO authenticated USING (true);" >/dev/null
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|BLOCKED" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "unreviewed broad RLS policy blocks release"
+psql -X -v ON_ERROR_STOP=1 -c "DROP POLICY unexpected_all_leads ON public.leads;" >/dev/null
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|PASS" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "policy removal restores release gate"
+
 echo "6c. Any anonymous column-level UPDATE grant must block release"
 psql -X -v ON_ERROR_STOP=1 -c "GRANT UPDATE (status) ON TABLE public.leads TO anon;" >/dev/null
 gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
