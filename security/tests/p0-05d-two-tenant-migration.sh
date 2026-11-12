@@ -115,6 +115,22 @@ if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_
 fi
 psql -X -v ON_ERROR_STOP=1 -c "delete from public.clients where id=3;" >/dev/null
 
+echo "3b. Duplicate verified Auth emails must abort before UUID backfill"
+psql -X -v ON_ERROR_STOP=1 -c "insert into auth.users(id,email,email_confirmed_at) values ('33333333-3333-3333-3333-333333333333','OWNER-A@example.test',now());" >/dev/null
+if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null 2>&1; then
+  echo "FAIL: duplicate verified Auth identity accepted" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -c "delete from auth.users where id='33333333-3333-3333-3333-333333333333';" >/dev/null
+
+echo "3c. Duplicate client owner emails must abort before owner mapping"
+psql -X -v ON_ERROR_STOP=1 -c "insert into public.clients values (3,'duplicate-owner','Synthetic duplicate','OWNER-A@example.test');" >/dev/null
+if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null 2>&1; then
+  echo "FAIL: duplicate business owner identity accepted" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -c "delete from public.clients where id=3;" >/dev/null
+
 echo "4. An unowned synthetic legacy lead must abort staged migration"
 psql -X -v ON_ERROR_STOP=1 -c "insert into public.leads (id,name) values ('cccccccc-cccc-cccc-cccc-ccccccccccc1','Unowned synthetic');" >/dev/null
 if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null 2>&1; then
