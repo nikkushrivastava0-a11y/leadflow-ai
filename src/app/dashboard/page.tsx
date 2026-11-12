@@ -5,7 +5,8 @@ import { LogoutButton } from "@/components/logout-button";
 import { AddLeadDialog } from "@/components/add-lead-dialog";
 import { LeadsTable } from "@/components/leads-table";
 import { UpgradeButton } from "@/components/upgrade-button";
-import { Lead, LEAD_STATUSES } from "@/lib/types";
+import { Lead } from "@/lib/types";
+import { buildTenantLeadFilter, normalizeLeadSearch, parseDashboardPage, parseLeadStatus } from "@/lib/dashboard-query";
 
 export default async function DashboardPage({
   searchParams,
@@ -13,15 +14,9 @@ export default async function DashboardPage({
   searchParams: Promise<{ page?: string; q?: string; status?: string }>;
 }) {
   const params = await searchParams;
-  const requestedPage = typeof params.page === "string" && /^[1-9]\d{0,5}$/.test(params.page)
-    ? Number(params.page) : 1;
-  // Only grammar-safe characters may enter a PostgREST logical filter.
-  const query = typeof params.q === "string"
-    ? params.q.trim().replace(/[^a-zA-Z0-9 @.+_-]/g, "").slice(0, 80)
-    : "";
-  const status = typeof params.status === "string" &&
-    LEAD_STATUSES.some((allowed) => allowed === params.status)
-    ? params.status : "all";
+  const requestedPage = parseDashboardPage(params.page);
+  const query = normalizeLeadSearch(params.q);
+  const status = parseLeadStatus(params.status);
   const pageSize = 20;
   const scope = await resolveOwnerScope();
 
@@ -39,20 +34,14 @@ export default async function DashboardPage({
   }
 
   // Exact database counts avoid reporting a truncated PostgREST page as totals.
-  const ownerFilter = `client_slug.eq.${scope.slug},and(client_slug.is.null,user_id.eq.${scope.userId})`;
+  const ownerFilter = buildTenantLeadFilter(scope.slug, scope.userId, "");
   const [totalResult, hotResult, wonResult] = await Promise.all([
     scope.supabase.from("leads").select("id", { count: "exact", head: true }).or(ownerFilter),
     scope.supabase.from("leads").select("id", { count: "exact", head: true }).or(ownerFilter).gte("score", 70),
     scope.supabase.from("leads").select("id", { count: "exact", head: true }).or(ownerFilter).eq("status", "won"),
   ]);
 
-  // Both ownership and search must share a single logical filter.
-  const searchClause = query
-    ? `or(name.ilike.*${query}*,email.ilike.*${query}*,phone.ilike.*${query}*,source.ilike.*${query}*)`
-    : null;
-  const filteredOwner = searchClause
-    ? `and(client_slug.eq.${scope.slug},${searchClause}),and(client_slug.is.null,user_id.eq.${scope.userId},${searchClause})`
-    : ownerFilter;
+  const filteredOwner = buildTenantLeadFilter(scope.slug, scope.userId, query);
   const matchingCountQuery = scope.supabase.from("leads")
     .select("id", { count: "exact", head: true }).or(filteredOwner);
   const matchingResult = status === "all"
