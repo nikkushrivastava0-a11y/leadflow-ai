@@ -54,13 +54,13 @@ function LeadStatusSelect({ lead }: { lead: Lead }) {
 
     try {
       const result = await updateLeadStatus(lead.id, nextStatus);
-      if (result?.error) {
+      if (result?.success === true) {
+        toast.success("Lead status updated");
+        router.refresh();
+      } else {
         setStatus(previousStatus);
-        toast.error(result.error);
-        return;
+        toast.error(result?.error || "Status update could not be confirmed.");
       }
-      toast.success("Lead status updated");
-      router.refresh();
     } catch {
       setStatus(previousStatus);
       toast.error("Could not update lead. Try again.");
