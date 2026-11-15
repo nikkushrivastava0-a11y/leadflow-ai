@@ -148,12 +148,13 @@ export async function runNextApplicationFlow({a,b,password,authBase,restBase,jwt
     const csrf=await http('/dashboard',{cookie:ownerA.cookie(),action:actionIds.updateLeadStatus,args:['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','won'],origin:'https://untrusted.example.test'});assert.ok(csrf.status>=400);assert.equal(sql("SELECT status FROM public.leads WHERE id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'"),'contacted');
     pass('Next server action rejects cross-origin mutation');
     if(publicFixture)await (await import('./next-public-flow.mjs')).verifyPublicIntake({appBase,sql,fixture:publicFixture,http,ownerA,ownerB});
+    if(process.env.LEADFLOW_PLAYWRIGHT_FLOW==='YES')await (await import('./run-playwright.mjs')).runPlaywright({appBase,localApiBase,password,runtimeEnv});
     const loginRedirect=await http('/login',{cookie:ownerA.cookie()});assert.equal(loginRedirect.status,307);assert.equal(new URL(loginRedirect.headers.get('location'),appBase).pathname,'/dashboard');
     const {error}=await ownerA.client.auth.signOut();assert.equal(error,null);
     const signedOut=await http('/dashboard',{cookie:ownerA.cookie()});assert.equal(signedOut.status,307);assert.equal(new URL(signedOut.headers.get('location'),appBase).pathname,'/login');
     pass('authenticated login redirect and SDK sign-out clear SSR cookies; subsequent dashboard denied');
     assert.ok(gatewayRequests>20);
-    pass('customer-flow boundary rehearsal completed without hosted providers or browser automation');
+    pass('customer-flow boundary rehearsal completed without hosted providers'+(process.env.LEADFLOW_PLAYWRIGHT_FLOW==='YES'?'; Playwright ran separately':' or browser automation'));
     app.kill('SIGTERM');
   }finally{
     for(const child of children)if(child.exitCode===null)child.kill('SIGTERM');
