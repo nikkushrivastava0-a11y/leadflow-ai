@@ -1,3 +1,5 @@
+import { EmbeddedEnquiry } from "@/components/embedded-enquiry";
+import type { EnquiryState } from "@/lib/embedded-enquiry";
 import { acceptsEnquiryConsent, PRIVACY_NOTICE_VERSION } from "@/lib/privacy";
 import { enquiryLanguage, enquiryCopy } from "@/lib/enquiry-locale";
 import { attribution } from "@/lib/lead-analytics";
@@ -15,10 +17,11 @@ function intakeEnabled() {
 
 export default async function DynamicLeadForm(props: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ success?: string; error?: string; utm_source?: string; utm_campaign?: string; lang?: string }>;
+  searchParams: Promise<{ success?: string; error?: string; utm_source?: string; utm_campaign?: string; lang?: string; embed?: string }>;
 }) {
   const params = await props.params;
   const searchParams = await props.searchParams;
+  const embedded=searchParams.embed==="1";
   const lang=enquiryLanguage(searchParams.lang), copy=enquiryCopy[lang];
   const suffix=lang==="en"?"":"&lang="+lang;
   
@@ -91,12 +94,16 @@ export default async function DynamicLeadForm(props: {
   // Public action: validated input, shared rate guard, server-only DB writer.
   async function submitLead(formData: FormData) {
     "use server";
-    if (!intakeEnabled()) redirect(`/form/${encodeURIComponent(slug)}?error=guard${suffix}`);
+    function fail(reason:string):EnquiryState {
+      if(embedded)return {saved:false,error:copy.error};
+      redirect(`/form/${slug}?error=${reason}${suffix}`);
+    }
+    if (!intakeEnabled()) return fail("guard");
     const privacyEnabled=process.env.LEADFLOW_PRIVACY_NOTICE_ENABLED === "true";
-    if(privacyEnabled&&!acceptsEnquiryConsent(formData.get("enquiry_consent")))redirect(`/form/${slug}?error=invalid${suffix}`);
+    if(privacyEnabled&&!acceptsEnquiryConsent(formData.get("enquiry_consent")))return fail("invalid");
     const validated = validatePublicLead(formData);
     if (!validated.ok) {
-      redirect("/form/" + encodeURIComponent(slug) + "?error=invalid" + suffix);
+      return fail("invalid");
     }
 
     const { name, email, phone } = validated.value;
@@ -119,13 +126,13 @@ export default async function DynamicLeadForm(props: {
         reservation.reason === "rate_limited" ? "busy" :
         reservation.reason === "duplicate" ? "duplicate" :
         reservation.reason === "spam" ? "invalid" : "guard";
-      redirect("/form/" + encodeURIComponent(slug) + "?error=" + errorState + suffix);
+      return fail(errorState);
     }
 
     const supabase = createPublicSubmissionClient();
     if (!supabase) {
       await reservation.release();
-      redirect("/form/" + encodeURIComponent(slug) + "?error=guard");
+      return fail("guard");
     }
 
     // Only the verified business slug, never owner_email or private client
@@ -145,7 +152,7 @@ export default async function DynamicLeadForm(props: {
 
     if (!businessExists) {
       await reservation.release();
-      redirect("/form/" + encodeURIComponent(slug) + "?error=business" + suffix);
+      return fail("business");
     }
 
     // The shared guard always runs first. Optional SQL merging serializes
@@ -169,7 +176,7 @@ export default async function DynamicLeadForm(props: {
 
     if (insertFailed) {
       await reservation.release();
-      redirect("/form/" + encodeURIComponent(slug) + "?error=save" + suffix);
+      return fail("save");
     }
 
     const committed = await reservation.complete();
@@ -191,8 +198,12 @@ export default async function DynamicLeadForm(props: {
 
     // Refresh the owner workspace only after the database accepted the insert.
     revalidatePath("/dashboard");
+    if(embedded)return {saved:true,error:""};
     redirect(`/form/${encodeURIComponent(slug)}?success=true${suffix}`);
   }
+
+  async function submitStandard(formData:FormData){"use server";await submitLead(formData);}
+  async function submitEmbedded(previous:EnquiryState,formData:FormData):Promise<EnquiryState>{"use server";void previous;return submitLead(formData);}
 
   // Keep intake closed until the coordinated database/auth release is approved.
   // Recheck inside the action too: stale pages cannot bypass this gate.
@@ -216,8 +227,8 @@ export default async function DynamicLeadForm(props: {
           {slug.replace('-', ' ')}
         </h1>
         
-        <nav aria-label="Language" className="mb-4 flex gap-4 text-sm underline">{([['en','English'],['hi','हिन्दी'],['hinglish','Hinglish']] as const).map(([value,label])=><a key={value} href={`/form/${slug}?lang=${value}&utm_source=${attribution(searchParams.utm_source,searchParams.utm_campaign).source_detail}&utm_campaign=${encodeURIComponent(attribution(searchParams.utm_source,searchParams.utm_campaign).source_campaign)}`}>{label}</a>)}</nav>
-        <form action={submitLead} className="flex flex-col gap-4">
+        <nav aria-label="Language" className="mb-4 flex gap-4 text-sm underline">{([['en','English'],['hi','हिन्दी'],['hinglish','Hinglish']] as const).map(([value,label])=><a key={value} href={`/form/${slug}?lang=${value}${embedded?"&embed=1":""}&utm_source=${attribution(searchParams.utm_source,searchParams.utm_campaign).source_detail}&utm_campaign=${encodeURIComponent(attribution(searchParams.utm_source,searchParams.utm_campaign).source_campaign)}`}>{label}</a>)}</nav>
+        {embedded?<EmbeddedEnquiry action={submitEmbedded} copy={copy} privacy={process.env.LEADFLOW_PRIVACY_NOTICE_ENABLED==="true"} source={attribution(searchParams.utm_source,searchParams.utm_campaign).source_detail} campaign={attribution(searchParams.utm_source,searchParams.utm_campaign).source_campaign}/>:<form action={submitStandard} className="flex flex-col gap-4">
           <input type="hidden" name="utm_source" value={attribution(searchParams.utm_source,searchParams.utm_campaign).source_detail}/>
           <input type="hidden" name="utm_campaign" value={attribution(searchParams.utm_source,searchParams.utm_campaign).source_campaign}/>
           <div className="absolute -left-[9999px] h-px w-px overflow-hidden" aria-hidden="true">
@@ -248,7 +259,7 @@ export default async function DynamicLeadForm(props: {
             {copy.submit}
           </button>
           <p className="text-center text-xs text-gray-400 mt-2">Powered by LeadFlow AI</p>
-        </form>
+        </form>}
       </div>
     </div>  
   );

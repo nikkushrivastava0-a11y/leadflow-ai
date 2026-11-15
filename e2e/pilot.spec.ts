@@ -1,23 +1,11 @@
 import {test,expect,type Page} from '@playwright/test';
 const name='PW Pilot Enquiry';
-async function authGateway(page:Page){
- const gateway=process.env.E2E_AUTH_GATEWAY;if(!gateway||new URL(gateway).hostname!=='127.0.0.1')throw new Error('Local Auth gateway required');
- await page.route('https://synthetic.supabase.co:55444/**',async route=>{
-  const request=route.request(),url=new URL(request.url());
-  if(!['/auth/v1/','/rest/v1/'].some(p=>url.pathname.startsWith(p)))return route.abort();
-  const response=await page.request.fetch(gateway+url.pathname+url.search,{method:request.method(),headers:request.headers(),data:request.postDataBuffer()||undefined});
-  await route.fulfill({response,headers:{...response.headers(),'access-control-allow-origin':process.env.E2E_BASE_URL!,'access-control-allow-credentials':'true'}});
- });
-}
-async function login(page:Page,email:string){
- await authGateway(page);await page.goto('/login');await page.getByLabel('Email',{exact:true}).fill(email);
- await page.getByLabel('Password',{exact:true}).fill(process.env.E2E_PASSWORD!);
- await page.getByRole('button',{name:'Sign In',exact:true}).click();await expect(page).toHaveURL(/\/dashboard$/);
-}
+import {login} from './helpers';
 async function enquiry(page:Page,spam=false){
  await page.goto('/form/synthetic-a');await page.getByLabel('Full Name',{exact:true}).fill(name);
  await page.getByLabel('Email Address',{exact:true}).fill('pw-pilot@example.test');await page.getByLabel('Phone Number',{exact:true}).fill('+91 9876500123');
  if(spam)await page.locator('input[name="company_website"]').fill('bot',{force:true});
+ if(await page.locator('[name=enquiry_consent]').count())await page.locator('[name=enquiry_consent]').check();
  await page.getByRole('button',{name:'Submit',exact:true}).click();
 }
 test('full enquiry owner journey, two-account isolation, mobile, spam and protected routes',async({page,browser,request},testInfo)=>{

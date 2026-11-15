@@ -32,4 +32,11 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.pilot_erase_enquiry_contacts(uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.pilot_erase_enquiry_contacts(uuid) TO service_role;
+CREATE FUNCTION leadflow_private.guard_active_lead_delete() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+BEGIN
+ IF EXISTS(SELECT FROM public.automation_jobs WHERE lead_id=OLD.id AND status='processing' AND leased_until>now()) THEN RAISE EXCEPTION 'Enquiry is processing; retry deletion later'; END IF;
+ RETURN OLD;
+END $$;
+REVOKE ALL ON FUNCTION leadflow_private.guard_active_lead_delete() FROM PUBLIC,anon,authenticated;
+CREATE TRIGGER guard_active_lead_delete BEFORE DELETE ON public.leads FOR EACH ROW EXECUTE FUNCTION leadflow_private.guard_active_lead_delete();
 COMMIT;

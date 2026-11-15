@@ -35,6 +35,10 @@ Every new table enables RLS and revokes anonymous access:
 
 Private trigger functions enqueue jobs and append audit entries atomically with lead writes. They have fixed search paths and no app-role EXECUTE grants. Public worker/billing RPCs are SECURITY INVOKER and executable only by `service_role`. `SUPABASE_SECRET_KEY` bypasses RLS: keep it server-only and use it only through these narrow paths.
 
+## Pilot candidate additions
+
+[Current pilot scope and release gates](docs/PILOT_CANDIDATE.md) documents health/startup isolation, confirmed-owner onboarding and embed tags, source analytics/CSV, Hindi/Hinglish forms, consent/privacy/data tools, pricing/trials and real Playwright CI. These additions remain review candidates; hosted staging creation and production backup verification are blocked. Do not mistake synthetic browser success for hosted-provider acceptance.
+
 ## Local setup
 
 ```bash

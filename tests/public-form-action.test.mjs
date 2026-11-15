@@ -33,6 +33,7 @@ function fixture({ privacyEnabled = false, mergeEnabled = false, enabled = true,
     },
   };
   const dependencies = {
+    "@/components/embedded-enquiry": {EmbeddedEnquiry:()=>null},
     "@/lib/privacy": privacy,
     "@/lib/enquiry-locale": locales,
     "@/lib/lead-analytics": analytics,
