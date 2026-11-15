@@ -35,7 +35,7 @@ export async function preparePublicIntake({sql,jwtSecret,gatewayPort}) {
   let server;let failInsert=false;
   return {
     apiBase:`https://synthetic.supabase.co:${tlsPort}`,
-    env:{NODE_EXTRA_CA_CERTS:trustedPath,NODE_OPTIONS:`--require=${preload}`,NO_PROXY:`${process.env.NO_PROXY??''},synthetic.supabase.co,127.0.0.1`,SUPABASE_SECRET_KEY:secret,LEAD_GUARD_HASH_SECRET:randomBytes(48).toString('base64url'),LEAD_GUARD_PROVIDER:'postgres',PUBLIC_ENQUIRIES_ENABLED:'true'},
+    env:{NODE_EXTRA_CA_CERTS:trustedPath,NODE_OPTIONS:`--require=${preload}`,NO_PROXY:`${process.env.NO_PROXY??''},synthetic.supabase.co,127.0.0.1`,SUPABASE_SECRET_KEY:secret,LEAD_GUARD_HASH_SECRET:randomBytes(48).toString('base64url'),LEADFLOW_PUBLIC_ORIGIN:'https://pilot.example.test',LEAD_GUARD_PROVIDER:'postgres',PUBLIC_ENQUIRIES_ENABLED:'true'},
     secret,
     // A local gateway mirrors the sb_secret-to-service-JWT platform boundary.
     // It accepts only this generated fake key; no hosted token is involved.
