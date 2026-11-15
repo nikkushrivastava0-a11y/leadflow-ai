@@ -13,6 +13,7 @@ import { toast } from "sonner";
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
+  const [business, setBusiness] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,6 +30,7 @@ export default function LoginPage() {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
+          options: {data: {business_name: business}},
         });
 
         const outcome = classifyAuthSubmission("sign_up", { data, error });
@@ -92,6 +94,7 @@ export default function LoginPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {isSignUp?<div className="space-y-2"><Label htmlFor="business">Business name</Label><Input id="business" value={business} onChange={e=>setBusiness(e.target.value)} maxLength={80} required/></div>:null}
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input

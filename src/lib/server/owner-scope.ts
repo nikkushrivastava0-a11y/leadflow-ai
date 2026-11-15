@@ -26,6 +26,11 @@ export async function resolveOwnerScope(): Promise<OwnerScope> {
     .eq("owner_user_id", user.id)
     .maybeSingle();
 
+  if (!error && !business && process.env.LEADFLOW_ONBOARDING_ENABLED === "true") {
+    const {provisionWorkspace}=await import("./onboarding");
+    const slug=await provisionWorkspace(user.id,user.user_metadata?.business_name);
+    if(slug && isValidBusinessSlug(slug))return {ok:true,supabase,userId:user.id,slug,email:user.email||""};
+  }
   if (error || !business?.slug || !isValidBusinessSlug(business.slug)) {
     // Never log the owner's email, access token or business slug.
     return { ok: false, reason: "business_unavailable" };
