@@ -14,3 +14,10 @@ test('provider retries reuse identical idempotency key and payload; failure is n
  assert.equal(bodies[0],bodies[1]);assert.deepEqual(keys,['leadflow/job','leadflow/job']);
  await assert.rejects(deliverEmail(msg,'leadflow/job','fake',async()=>new Response('',{status:429})));
 });
+
+test('default transport uses virtual test recipient and staging cannot send live email',async()=>{
+ const msg=notificationMessage('owner_alert','a@example.test','real-owner@example.test','Shop');let to;
+ await deliverEmail(msg,'job','fake',async(_url,init)=>{to=JSON.parse(String(init?.body)).to;return Response.json({id:'synthetic'});},{});
+ assert.equal(to,'delivered@resend.dev');
+ await assert.rejects(deliverEmail(msg,'job','fake',async()=>{throw new Error('Must not call provider');},{LEADFLOW_ENV:'staging',LEADFLOW_EMAIL_MODE:'live-approved'}),/sandbox/);
+});
