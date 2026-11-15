@@ -28,5 +28,8 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.merge_public_enquiry(text,text,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.merge_public_enquiry(text,text,text,text) TO service_role;
+-- Invoker RPC must work with the restricted public-writer baseline, not inherited broad grants.
+GRANT SELECT(id,client_slug,email,phone,created_at,enquiry_count) ON public.leads TO service_role;
+GRANT INSERT(last_enquiry_at) ON public.leads TO service_role;
 GRANT UPDATE(enquiry_count,last_enquiry_at) ON public.leads TO service_role;
 COMMIT;

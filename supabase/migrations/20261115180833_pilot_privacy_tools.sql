@@ -1,6 +1,7 @@
 BEGIN;
 DO $$BEGIN IF current_setting('leadflow.feature_migrations',true) IS DISTINCT FROM 'REVIEWED' THEN RAISE EXCEPTION 'Reviewed migration required'; END IF; END$$;
 ALTER TABLE public.leads ADD COLUMN consented_at timestamptz,ADD COLUMN notice_version text,ADD COLUMN anonymized_at timestamptz;
+GRANT SELECT(user_id,anonymized_at) ON public.leads TO service_role;
 GRANT INSERT(consented_at,notice_version) ON public.leads TO service_role;
 GRANT UPDATE(name,email,phone,notes,status,score,score_reason,next_follow_up_at,anonymized_at,source_campaign,consented_at,notice_version) ON public.leads TO service_role;
 GRANT UPDATE(trial_started_at) ON public.clients TO service_role;

@@ -77,7 +77,7 @@ export async function verifyPublicIntake({appBase,sql,fixture,http,ownerA,ownerB
   const details={...(process.env.LEADFLOW_PRODUCT_FLOW==='YES'?{enquiry_consent:'on'}:{}),name:'Synthetic Public Next',email:'public-next@example.test',phone:'+91 9876543210',company_website:''};
   const before=sql('SELECT count(*) FROM public.leads');
   const forged=await http('/form/synthetic-a?success=true');assert.ok(forged.text.includes('Submission status unavailable'),'A query parameter cannot forge a saved receipt');
-  const saved=await submit('synthetic-a',details);assert.equal(saved.location.searchParams.get('success'),'true');
+  const saved=await submit('synthetic-a',details);assert.equal(saved.location.searchParams.get('success'),'true','Restricted service writer must persist the configured consent/merge path');
   assert.equal(sql("SELECT count(*) FROM public.leads WHERE name='Synthetic Public Next' AND client_slug='synthetic-a' AND user_id IS NULL"),'1');
   const receipt=saved.cookies.find(value=>value.startsWith('leadflow-enquiry-receipt='));assert.ok(receipt&&/HttpOnly/i.test(receipt)&&/Secure/i.test(receipt)&&/SameSite=lax/i.test(receipt),'Receipt must use protected cookie attributes');
   const receiptCookie=receipt.split(';')[0];
