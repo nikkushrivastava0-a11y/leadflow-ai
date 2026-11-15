@@ -22,6 +22,7 @@ export function validateServerEnv(env:Env):EnvIssue[]{
  if(env.LEADFLOW_AUTOMATION_ENABLED==="true")need("CRON_SECRET",v=>v.length>=32);
  if(env.GEMINI_API_KEY)need("GEMINI_MODEL",v=>/^[a-zA-Z0-9._-]{2,80}$/.test(v));
  if(env.LEADFLOW_EMAIL_ENABLED==="true"){
+  need("LEADFLOW_EMAIL_MODE",v=>["sandbox","live-approved"].includes(v));
   need("RESEND_API_KEY");need("RESEND_FROM_EMAIL",v=>/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(v));
   if(env.LEADFLOW_ENV==="staging"||env.VERCEL_ENV==="preview")need("LEADFLOW_EMAIL_MODE",v=>v==="sandbox");
  }
