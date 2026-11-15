@@ -30,3 +30,12 @@ test('synthetic flag is local-only and cannot bypass hosted staging validation',
  }
  assert.deepEqual(validateServerEnv({...base,LEADFLOW_SYNTHETIC_ONLY:'YES'}),[]);
 });
+
+test('enquiry intake requires a shareable HTTPS form origin', () => {
+ const intake = {...base, PUBLIC_ENQUIRIES_ENABLED:'true', SUPABASE_SECRET_KEY:'sb_secret_' + 'a'.repeat(32),
+  LEAD_GUARD_HASH_SECRET:'a'.repeat(32), LEAD_GUARD_PROVIDER:'postgres'};
+ for (const origin of [undefined, 'http://example.test', 'https://example.test/form']) {
+  assert.ok(validateServerEnv({...intake, LEADFLOW_PUBLIC_ORIGIN:origin}).some(issue => issue.name === 'LEADFLOW_PUBLIC_ORIGIN'));
+ }
+ assert.deepEqual(validateServerEnv({...intake, LEADFLOW_PUBLIC_ORIGIN:'https://example.test'}), []);
+});

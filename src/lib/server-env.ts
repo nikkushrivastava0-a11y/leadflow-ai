@@ -1,3 +1,4 @@
+import { safeHttpsOrigin } from './auth-callback-origin.ts';
 type Env=Record<string,string|undefined>;
 export type EnvIssue={name:string;code:"missing"|"invalid"|"unsafe_target"};
 const PRODUCTION_REF="pqzawjeggyxarwdkdynz";
@@ -17,6 +18,7 @@ export function validateServerEnv(env:Env):EnvIssue[]{
   need("SUPABASE_SECRET_KEY",v=>v.startsWith("sb_secret_")&&v.length>=24);
  }
  if(env.PUBLIC_ENQUIRIES_ENABLED==="true"){
+  need("LEADFLOW_PUBLIC_ORIGIN", value => safeHttpsOrigin(value) !== null);
   need("LEAD_GUARD_HASH_SECRET",v=>v.length>=32);
   need("LEAD_GUARD_PROVIDER",v=>["postgres","redis"].includes(v));
   if(env.LEAD_GUARD_PROVIDER==="redis"){need("UPSTASH_REDIS_REST_URL");need("UPSTASH_REDIS_REST_TOKEN");}
