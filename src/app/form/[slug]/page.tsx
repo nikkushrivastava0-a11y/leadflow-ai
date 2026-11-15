@@ -1,64 +1,225 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { EmbeddedEnquiry } from "@/components/embedded-enquiry";
+import type { EnquiryState } from "@/lib/embedded-enquiry";
+import { acceptsEnquiryConsent, PRIVACY_NOTICE_VERSION } from "@/lib/privacy";
+import { enquiryLanguage, enquiryCopy } from "@/lib/enquiry-locale";
+import { attribution } from "@/lib/lead-analytics";
+import { createPublicSubmissionClient } from "@/lib/server/public-submission-client";
+import { notFound, redirect } from "next/navigation";
+import { isValidBusinessSlug, validatePublicLead } from "@/lib/public-leads";
+import { reservePublicLeadSubmission } from "@/lib/server/public-lead-guard";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+import { createEnquiryReceipt, verifyEnquiryReceipt, ENQUIRY_RECEIPT_COOKIE, ENQUIRY_RECEIPT_SECONDS } from "@/lib/server/public-enquiry-receipt";
+
+function intakeEnabled() {
+  return process.env.PUBLIC_ENQUIRIES_ENABLED === "true";
+}
 
 export default async function DynamicLeadForm(props: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ success?: string }>;
+  searchParams: Promise<{ success?: string; error?: string; utm_source?: string; utm_campaign?: string; lang?: string; embed?: string }>;
 }) {
   const params = await props.params;
   const searchParams = await props.searchParams;
+  const embedded=searchParams.embed==="1";
+  const lang=enquiryLanguage(searchParams.lang), copy=enquiryCopy[lang];
+  const suffix=lang==="en"?"":"&lang="+lang;
   
   // URL se slug nikal rahe hain (e.g., 'cafe-xyz')
   const slug = params.slug;
+  if (!isValidBusinessSlug(slug)) notFound();
 
-  // Success UI
+  // A query parameter alone never proves the server saved an enquiry.
   if (searchParams?.success) {
+    const receipt = (await cookies()).get(ENQUIRY_RECEIPT_COOKIE)?.value;
+    const confirmed = verifyEnquiryReceipt(receipt, slug, process.env.LEAD_GUARD_HASH_SECRET);
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
         <div className="text-center rounded-xl bg-white p-8 shadow-lg max-w-sm">
-          <div className="text-4xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold text-green-600 mb-2">Thank You!</h2>
-          <p className="text-slate-600">Your details have been submitted successfully. We will get back to you soon.</p>
+          <div className="text-4xl mb-4" aria-hidden="true">{confirmed ? "✓" : "?"}</div>
+          <h2 className="text-2xl font-bold text-green-600 mb-2">{confirmed ? copy.saved : "Submission status unavailable"}</h2>
+          <p className="text-slate-600">{confirmed ? copy.savedText : "This page cannot confirm a saved enquiry. Contact the business if you are unsure before submitting again."}</p>
         </div>
       </div>
     );
   }
 
-  // Submit Logic (Bina kisi login check ke)
+  // An insert error should be visible to the visitor, never a silent no-op.
+  // This route is public by design, and must have separate RLS and spam checks.
+  if (searchParams?.error) {
+    const invalidDetails = searchParams.error === "invalid";
+    const unavailableBusiness = searchParams.error === "business";
+    const slowDown = searchParams.error === "busy";
+    const duplicate = searchParams.error === "duplicate";
+    const guardUnavailable = searchParams.error === "guard";
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#a65d31] p-4">
+        <section role="alert" className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
+          <p className="text-xs font-semibold uppercase tracking-wider text-red-700">
+            {invalidDetails ? "Check your details" : unavailableBusiness ? "Form unavailable" : slowDown ? "Too many requests" : duplicate ? "Recent similar enquiry" : guardUnavailable ? "Temporarily unavailable" : "Submission not saved"}
+          </p>
+          <h1 className="mt-3 text-2xl font-bold text-slate-900">
+            {lang!=="en"?copy.error:invalidDetails
+              ? "Some details need correcting."
+              : unavailableBusiness
+                ? "This business cannot accept enquiries right now."
+                : slowDown
+                  ? "Please try again later."
+                  : duplicate
+                    ? "A similar enquiry was attempted recently."
+                    : guardUnavailable
+                      ? "The enquiry form is temporarily unavailable."
+                      : "We couldn't save your enquiry."}
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-700">
+            {invalidDetails
+              ? "Enter your full name, a valid email, and a phone number with 10–15 digits. No enquiry was saved."
+              : slowDown
+                ? "Too many enquiries were attempted in a short period. Wait before submitting again."
+                : duplicate
+                  ? "A similar enquiry was attempted recently. Check with the business before submitting again."
+                  : "No enquiry was saved or confirmed. Please try again later or contact the business directly."}
+          </p>
+          <a
+            href={`/form/${encodeURIComponent(slug)}`}
+            className="mt-6 inline-flex rounded-md bg-[#a65d31] px-5 py-3 text-sm font-semibold text-white"
+          >
+            Try again
+          </a>
+        </section>
+      </main>
+    );
+  }
+
+  // Public action: validated input, shared rate guard, server-only DB writer.
   async function submitLead(formData: FormData) {
     "use server";
-    const supabase = await createClient();
-    
-    const name = formData.get("name") as string;
-    const email = formData.get("email") as string;
-    const phone = formData.get("phone") as string;
-
-    // Supabase mein data insert ho raha hai - client_slug ke sath!
-    const { error } = await supabase.from("leads").insert([
-      { 
-        name, 
-        email, 
-        phone, 
-        source: "Website Form",
-        status: "new", 
-        score: 50,
-        client_slug: slug // <--- Ye tera data sahi client ke dashboard mein bhejega
-      }
-    ]);
-
-    if (error) {
-      console.error("Error saving lead:", error);
-      return;
+    function fail(reason:string):EnquiryState {
+      if(embedded)return {saved:false,error:copy.error};
+      redirect(`/form/${slug}?error=${reason}${suffix}`);
     }
-    
-    // Dashboard refresh karo aur success page par bhejo
+    if (!intakeEnabled()) return fail("guard");
+    const privacyEnabled=process.env.LEADFLOW_PRIVACY_NOTICE_ENABLED === "true";
+    if(privacyEnabled&&!acceptsEnquiryConsent(formData.get("enquiry_consent")))return fail("invalid");
+    const validated = validatePublicLead(formData);
+    if (!validated.ok) {
+      return fail("invalid");
+    }
+
+    const { name, email, phone } = validated.value;
+    const tracked=attribution(formData.get("utm_source"),formData.get("utm_campaign"));
+    const trackEnabled=process.env.LEADFLOW_ANALYTICS_ENABLED === "true";
+
+    // An anonymous browser key must NOT be able to insert straight into
+    // public.leads after RLS hardening. Enforce the Redis guard before using
+    // an elevated server-only Supabase secret key.
+    const reservation = await reservePublicLeadSubmission({
+      slug,
+      name,
+      email,
+      phone,
+      honeypot: formData.get("company_website"),
+    });
+
+    if (!reservation.allowed) {
+      const errorState =
+        reservation.reason === "rate_limited" ? "busy" :
+        reservation.reason === "duplicate" ? "duplicate" :
+        reservation.reason === "spam" ? "invalid" : "guard";
+      return fail(errorState);
+    }
+
+    const supabase = createPublicSubmissionClient();
+    if (!supabase) {
+      await reservation.release();
+      return fail("guard");
+    }
+
+    // Only the verified business slug, never owner_email or private client
+    // fields, is returned. A failure releases the reservation for retry.
+    let businessExists = false;
+    try {
+      const { data: registeredClient, error: clientError } = await supabase
+        .from("clients")
+        .select("slug, owner_user_id")
+        .eq("slug", slug)
+        .maybeSingle();
+
+      businessExists = !clientError && registeredClient?.slug === slug && Boolean(registeredClient?.owner_user_id);
+    } catch {
+      console.error("Public form business lookup failed");
+    }
+
+    if (!businessExists) {
+      await reservation.release();
+      return fail("business");
+    }
+
+    // The shared guard always runs first. Optional SQL merging serializes
+    // matching tenant/contact pairs and preserves existing CRM fields.
+    let insertFailed = false;
+    try {
+      const { error } = process.env.LEADFLOW_DUPLICATE_MERGE_ENABLED === "true"
+        ? await supabase.rpc(privacyEnabled?"merge_public_enquiry_consented":trackEnabled?"merge_public_enquiry_tracked":"merge_public_enquiry", { p_slug: slug, p_name: name, p_email: email, p_phone: phone, ...((trackEnabled||privacyEnabled)?{p_source:tracked.source_detail,p_campaign:tracked.source_campaign}:{}) })
+        : await supabase.from("leads").insert([{
+          ...(privacyEnabled?{consented_at:new Date().toISOString(),notice_version:PRIVACY_NOTICE_VERSION}:{}), ...(trackEnabled?tracked:{}), name, email, phone, source: "Website Form", status: "new", score: 50,
+          score_reason: "Unscored enquiry (AI analysis has not run).", client_slug: slug,
+        }]);
+      if (error) {
+        console.error("Public enquiry insert failed:", error.code || "unknown");
+        insertFailed = true;
+      }
+    } catch {
+      console.error("Public enquiry insert threw an error");
+      insertFailed = true;
+    }
+
+    if (insertFailed) {
+      await reservation.release();
+      return fail("save");
+    }
+
+    const committed = await reservation.complete();
+    if (!committed) {
+      // A durable DB insert already succeeded. Do not pretend it failed.
+      console.warn("Public lead saved but duplicate guard confirmation unavailable");
+    }
+
+    const receipt = createEnquiryReceipt(slug, process.env.LEAD_GUARD_HASH_SECRET);
+    if (receipt) {
+      (await cookies()).set(ENQUIRY_RECEIPT_COOKIE, receipt, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: `/form/${slug}`,
+        maxAge: ENQUIRY_RECEIPT_SECONDS,
+      });
+    }
+
+    // Refresh the owner workspace only after the database accepted the insert.
     revalidatePath("/dashboard");
-    redirect(`/form/${slug}?success=true`);
+    if(embedded)return {saved:true,error:""};
+    redirect(`/form/${encodeURIComponent(slug)}?success=true${suffix}`);
+  }
+
+  async function submitStandard(formData:FormData){"use server";await submitLead(formData);}
+  async function submitEmbedded(previous:EnquiryState,formData:FormData):Promise<EnquiryState>{"use server";void previous;return submitLead(formData);}
+
+  // Keep intake closed until the coordinated database/auth release is approved.
+  // Recheck inside the action too: stale pages cannot bypass this gate.
+  if (!intakeEnabled() || !createPublicSubmissionClient()) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+        <section role="status" className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
+          <h1 className="text-2xl font-bold text-slate-900">{copy.unavailable}</h1>
+          <p className="mt-3 text-slate-700">{copy.unavailableText}</p>
+        </section>
+      </main>
+    );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#a65d31] p-4">
+    <div className="flex min-h-screen items-center justify-center bg-[#a65d31] p-4" lang={lang==="hinglish"?"hi-Latn":lang}>
       {/* Background color wahi brown rakha hai jo tere screenshot mein tha */}
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
         {/* Dynamic Title - Form ka naam URL ke hisaab se change hoga */}
@@ -66,24 +227,39 @@ export default async function DynamicLeadForm(props: {
           {slug.replace('-', ' ')}
         </h1>
         
-        <form action={submitLead} className="flex flex-col gap-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-[#a65d31]">Full Name</label>
-            <input required type="text" name="name" className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="John Doe" />
+        <nav aria-label="Language" className="mb-4 flex gap-4 text-sm underline">{([['en','English'],['hi','हिन्दी'],['hinglish','Hinglish']] as const).map(([value,label])=><a key={value} href={`/form/${slug}?lang=${value}${embedded?"&embed=1":""}&utm_source=${attribution(searchParams.utm_source,searchParams.utm_campaign).source_detail}&utm_campaign=${encodeURIComponent(attribution(searchParams.utm_source,searchParams.utm_campaign).source_campaign)}`}>{label}</a>)}</nav>
+        {embedded?<EmbeddedEnquiry action={submitEmbedded} copy={copy} privacy={process.env.LEADFLOW_PRIVACY_NOTICE_ENABLED==="true"} source={attribution(searchParams.utm_source,searchParams.utm_campaign).source_detail} campaign={attribution(searchParams.utm_source,searchParams.utm_campaign).source_campaign}/>:<form action={submitStandard} className="flex flex-col gap-4">
+          <input type="hidden" name="utm_source" value={attribution(searchParams.utm_source,searchParams.utm_campaign).source_detail}/>
+          <input type="hidden" name="utm_campaign" value={attribution(searchParams.utm_source,searchParams.utm_campaign).source_campaign}/>
+          <div className="absolute -left-[9999px] h-px w-px overflow-hidden" aria-hidden="true">
+            <label htmlFor="company_website">Do not fill out this field</label>
+            <input
+              id="company_website"
+              name="company_website"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+            />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#a65d31]">Email Address</label>
-            <input required type="email" name="email" className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="john@example.com" />
+            <label htmlFor="lead-name" className="mb-1 block text-sm font-medium text-[#a65d31]">{copy.name}</label>
+            <input required id="lead-name" type="text" name="name" autoComplete="name" maxLength={100} minLength={2} className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="John Doe" />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#a65d31]">Phone Number</label>
-            <input required type="tel" name="phone" className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="+91 98765 43210" />
+            <label htmlFor="lead-email" className="mb-1 block text-sm font-medium text-[#a65d31]">{copy.email}</label>
+            <input required id="lead-email" type="email" name="email" autoComplete="email" maxLength={254} className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="john@example.com" />
           </div>
+          <div>
+            <label htmlFor="lead-phone" className="mb-1 block text-sm font-medium text-[#a65d31]">{copy.phone}</label>
+            <input required id="lead-phone" type="tel" name="phone" autoComplete="tel" maxLength={25} className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="+91 98765 43210" />
+          </div>
+          {process.env.LEADFLOW_PRIVACY_NOTICE_ENABLED === "true"?<label className="flex items-start gap-2 text-sm text-slate-700"><input required type="checkbox" name="enquiry_consent" className="mt-1"/>{copy.consent}</label>:null}
+          <p className="text-xs"><a className="underline" href="/privacy">Privacy / गोपनीयता</a> · <a className="underline" href="/terms">Terms</a></p>
           <button type="submit" className="mt-4 w-full rounded-md bg-[#a65d31] p-2.5 text-white hover:bg-[#8a4b26] font-semibold transition-colors">
-            Submit
+            {copy.submit}
           </button>
           <p className="text-center text-xs text-gray-400 mt-2">Powered by LeadFlow AI</p>
-        </form>
+        </form>}
       </div>
     </div>  
   );

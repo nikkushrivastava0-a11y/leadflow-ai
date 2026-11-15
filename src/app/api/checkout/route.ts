@@ -1,24 +1,19 @@
 import { NextResponse } from "next/server";
-// @ts-ignore
-import Razorpay from "razorpay";
 
-const razorpay = new Razorpay({
-  key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
-
+/**
+ * Launch gate: there is not yet a verified order->owner entitlement flow.
+ * Authenticated order creation alone cannot prove a captured payment.
+ * Keep checkout unavailable until signed, idempotent webhooks, captured
+ * amount/currency and persistent tenant entitlements are verified in staging.
+ */
 export async function POST() {
-  try {
-    // ₹499 ka order create kar rahe hain (Razorpay paise me amount leta hai, toh 499 * 100)
-    const order = await razorpay.orders.create({
-      amount: 49900, 
-      currency: "INR",
-      receipt: "receipt_" + Math.random().toString(36).substring(7),
-    });
-
-    return NextResponse.json({ orderId: order.id });
-  } catch (error) {
-    console.error("Razorpay order error:", error);
-    return NextResponse.json({ error: "Order creation failed" }, { status: 500 });
-  }
+  return NextResponse.json(
+    { error: "Paid upgrades are not available yet." },
+    {
+      status: 503,
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    }
+  );
 }

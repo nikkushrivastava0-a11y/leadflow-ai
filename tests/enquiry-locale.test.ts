@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {enquiryCopy,enquiryLanguage} from '../src/lib/enquiry-locale.ts';import {replyDraft} from '../src/lib/followup-draft.ts';
+test('language input is allowlisted and form copy includes Hindi and Hinglish',()=>{assert.equal(enquiryLanguage('fr'),'en');assert.match(enquiryCopy.hi.saved,/पूछताछ/);assert.match(enquiryCopy.hinglish.submit,/bhejein/);});
+test('Hindi reply fallback is available without model credentials',async()=>{const draft=await replyDraft({},'professional','hindi',{});assert.equal(draft.engine,'rules');assert.match(draft.text,/धन्यवाद/);});

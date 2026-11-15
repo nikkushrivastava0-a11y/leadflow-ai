@@ -1,0 +1,8 @@
+# Enquiry notifications
+New-lead triggers queue customer confirmations for website enquiries and owner alerts for all enquiries. Resend receives a stable idempotency key and immutable plain-text payload. Owner recipient comes from the confirmed Auth identity, not a submitted address. Stored receipts prevent later sends. Failed requests retry with bounded exponential delay; after the provider's 24h key window approaches (20h), ambiguous delivery stops for manual review. This is at-least-once processing with bounded provider deduplication, not an unlimited exactly-once guarantee.
+
+Manual setup: migration 02 after backup/isolated restore, verify a sender domain in Resend (SPF/DKIM), set server-only RESEND_API_KEY and bare RESEND_FROM_EMAIL, then LEADFLOW_EMAIL_ENABLED=true. Keep the main automation flag off until an isolated two-account test and safe recipient verification. No redirects change. No emails have been sent by this PR.
+
+Risks: invalid/unverified recipients, provider throttling, late cron runs and ambiguous timeouts. Inspect jobs and email_deliveries; do not reset an ambiguous job to resend blindly. At 1,000 enquiries/month expect up to 2,000 notification emails, before reminders/reports. Planning budget ₹0 within eligible free quotas; otherwise reserve up to ₹2,000/month subject to current provider limits/pricing. Do not enable paid service automatically.
+
+Rollback: set LEADFLOW_EMAIL_ENABLED=false, stop scheduling before schema changes, revert app commit; preserve outbox receipts. Destructive rollback 02 only in disposable staging after later dependencies are removed and receipts exported.

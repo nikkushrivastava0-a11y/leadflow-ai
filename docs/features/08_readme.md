@@ -1,0 +1,6 @@
+# Setup and architecture documentation
+README documents the actual source, disabled-by-default release state, environment variables, SQL/RLS boundaries, endpoints, feature order, local tests, screenshot placeholders and the remaining hosted acceptance gates. The operator guide provides scheduler configuration, backup/restore requirements, test credentials, safe rollback and per-feature risks/costs/manual tasks.
+
+Manual steps: review the exact stacked diffs; do not merge/deploy as a shortcut around PR55's ownership/backup gates. Populate server configuration through the hosting secret store, verify Auth Site URL and exact /auth/callback redirect allowlist for the approved host, prepare and verify an encrypted backup and isolated restore, rehearse migrations against that approved schema, then separately approve any production application. No real keys belong in .env.example or screenshots.
+
+Risks: documentation and price assumptions can drift; provider model availability, limits and eligibility must be checked when configuring. Estimated incremental monthly cost ₹0. Documentation changes do not provision anything. Rollback: revert README/operator guide commit; source/runtime remains unchanged.

@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {acceptsEnquiryConsent,erasureConfirmed} from '../src/lib/privacy.ts';
+test('consent and erasure require exact independent affirmations',()=>{assert.equal(acceptsEnquiryConsent('on'),true);for(const input of [undefined,'true',true,'yes'])assert.equal(acceptsEnquiryConsent(input),false);assert.equal(erasureConfirmed('ERASE ENQUIRY DATA'),true);assert.equal(erasureConfirmed('yes'),false);});

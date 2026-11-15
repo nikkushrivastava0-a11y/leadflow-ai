@@ -1,0 +1,351 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Refuse existing tables or credentials aimed at a non-disposable database.
+[[ "${LEADFLOW_SYNTHETIC_ONLY:-}" == "YES" ]] || { echo "Synthetic-only opt-in required" >&2; exit 2; }
+exists=$(psql -X -qAt -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM information_schema.tables WHERE table_schema IN ('public','private','auth') AND table_name IN ('leads','clients','users','leads_quarantine')")
+[[ "$exists" == "0" ]] || { echo "Refusing to touch existing tables" >&2; exit 2; }
+
+MIGRATION=security/proposals/p0-05-reviewed-rls.sql
+A=11111111-1111-1111-1111-111111111111
+B=22222222-2222-2222-2222-222222222222
+
+assert_result() {
+  local expected="$1"
+  local actual="$2"
+  local label="$3"
+  if [[ "$expected" != "$actual" ]]; then
+    echo "FAIL $label expected=$expected actual=$actual" >&2
+    exit 1
+  fi
+  echo "PASS $label"
+}
+
+query_as() {
+  local actor="$1"
+  local statement="$2"
+  psql -X -qAt -v ON_ERROR_STOP=1 <<SQL
+SET ROLE authenticated;
+SET request.jwt.claim.sub = '$actor';
+$statement
+SQL
+}
+
+should_fail_as() {
+  local actor="$1"
+  local statement="$2"
+  if psql -X -qAt -v ON_ERROR_STOP=1 <<SQL >/dev/null 2>&1
+SET ROLE authenticated;
+SET request.jwt.claim.sub = '$actor';
+$statement
+SQL
+  then
+    echo "FAIL: unauthorized query succeeded: $statement" >&2
+    exit 1
+  fi
+  echo "PASS: unauthorized request denied"
+}
+
+echo "1. Create ONLY a throwaway PostgreSQL mock of relevant Supabase schema"
+psql -X -v ON_ERROR_STOP=1 <<'SQL'
+DO $roles$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
+ IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname IN ('anon','authenticated') AND (rolsuper OR rolbypassrls OR rolcanlogin)) THEN
+   RAISE EXCEPTION 'Synthetic API role unexpectedly privileged';
+ END IF;
+END $roles$;
+CREATE SCHEMA auth;
+CREATE TABLE auth.users (
+  id uuid PRIMARY KEY,
+  email text NOT NULL,
+  email_confirmed_at timestamptz
+);
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
+$$ SELECT nullif(current_setting('request.jwt.claim.sub', true),'')::uuid $$;
+
+GRANT USAGE ON SCHEMA auth TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+
+CREATE TABLE public.clients (
+  id bigint PRIMARY KEY,
+  slug text UNIQUE NOT NULL,
+  business_name text NOT NULL,
+  owner_email text NOT NULL
+);
+CREATE TABLE public.leads (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NULL,
+  client_slug text NULL,
+  name text NOT NULL,
+  email text,
+  phone text,
+  source text DEFAULT 'manual',
+  notes text,
+  status text DEFAULT 'new',
+  score integer DEFAULT 0,
+  score_reason text,
+  updated_at timestamptz DEFAULT now()
+);
+ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can insert their own leads" ON public.leads
+  FOR INSERT WITH CHECK ((auth.uid() = user_id));
+CREATE POLICY "Users can view their own leads" ON public.leads
+  FOR SELECT USING ((auth.uid() = user_id));
+GRANT ALL ON TABLE public.clients,public.leads TO anon,authenticated;
+
+INSERT INTO auth.users(id,email,email_confirmed_at)
+VALUES ('11111111-1111-1111-1111-111111111111','owner-a@example.test',now()),
+       ('22222222-2222-2222-2222-222222222222','owner-b@example.test',now());
+INSERT INTO public.clients(id,slug,business_name,owner_email)
+VALUES (1,'business-a','Synthetic A','owner-a@example.test'),
+       (2,'business-b','Synthetic B','owner-b@example.test');
+INSERT INTO public.leads(id,user_id,client_slug,name) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1','11111111-1111-1111-1111-111111111111','business-a','A owned'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1','22222222-2222-2222-2222-222222222222','business-b','B owned'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2',NULL,'business-a','A public synthetic'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3','11111111-1111-1111-1111-111111111111',NULL,'A legacy'),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2','22222222-2222-2222-2222-222222222222',NULL,'B legacy');
+SQL
+
+echo "1b. Read-only ownership audit reports aggregate metrics without changing schema"
+audit_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-ownership-audit.sql)
+assert_result 2 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="clients_total" {print $2}')" "audited synthetic clients"
+assert_result 5 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="leads_total" {print $2}')" "audited synthetic leads"
+assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="clients_without_unique_confirmed_owner" {print $2}')" "confirmed owners reviewed"
+assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="leads_with_unknown_business_slug" {print $2}')" "no orphan business slug"
+assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="legacy_leads_without_provisioned_owner" {print $2}')" "legacy ownership reviewed"
+assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="distinct_leads_requiring_reconciliation" {print $2}')" "clean baseline has zero distinct blockers"
+missing=$(psql -X -qAt -v ON_ERROR_STOP=1 -c "select count(*) from information_schema.columns where table_schema='public' and table_name='clients' and column_name='owner_user_id';")
+assert_result 0 "$missing" "aggregate audit does not mutate schema"
+
+queue_count=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-private-lead-reconciliation-queue.sql | wc -l | tr -d ' ')
+assert_result 0 "$queue_count" "clean baseline has no private review queue entries"
+
+echo "1c. Audit detects injected synthetic orphan and unprovisioned legacy owners"
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO auth.users(id,email,email_confirmed_at) VALUES ('44444444-4444-4444-4444-444444444444','outside@example.test',now());" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.leads(id,user_id,client_slug,name) VALUES ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee4','$A','unknown-business','Audit orphan'),('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee5','44444444-4444-4444-4444-444444444444',NULL,'Audit legacy');" >/dev/null
+audit_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-ownership-audit.sql)
+assert_result 1 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="leads_with_unknown_business_slug" {print $2}')" "detect orphan business slug"
+assert_result 1 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="legacy_leads_without_provisioned_owner" {print $2}')" "detect unprovisioned legacy owner"
+assert_result 2 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="distinct_leads_requiring_reconciliation" {print $2}')" "distinct blockers count each synthetic lead once"
+queue_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-private-lead-reconciliation-queue.sql)
+queue_count=$(printf '%s\n' "$queue_output" | wc -l | tr -d ' ')
+assert_result 2 "$queue_count" "private queue includes both synthetic anomalies"
+if ! printf '%s\n' "$queue_output" | grep -q 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee4|unknown_business_slug'; then
+  echo "FAIL: orphan synthetic ID not flagged with correct reason" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$queue_output" | grep -q 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee5|unprovisioned_legacy_owner'; then
+  echo "FAIL: legacy synthetic ID not flagged with correct reason" >&2
+  exit 1
+fi
+
+psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM public.leads WHERE id IN ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee4','eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee5'); DELETE FROM auth.users WHERE id='44444444-4444-4444-4444-444444444444';" >/dev/null
+audit_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-ownership-audit.sql)
+assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="leads_with_unknown_business_slug" {print $2}')" "cleanup removes orphan warning"
+assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="legacy_leads_without_provisioned_owner" {print $2}')" "cleanup removes legacy warning"
+assert_result 0 "$(printf '%s\n' "$audit_output" | awk -F'|' '$1=="distinct_leads_requiring_reconciliation" {print $2}')" "synthetic cleanup leaves no distinct blockers"
+queue_count=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-private-lead-reconciliation-queue.sql | wc -l | tr -d ' ')
+assert_result 0 "$queue_count" "private review queue clears after synthetic cleanup"
+
+echo "1d. Read-only release gate distinguishes clean synthetic ownership from unreviewed privileges"
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|BLOCKED" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "pre-migration release gate stays blocked"
+
+echo "2. No approval sentinel must prevent any schema changes"
+if psql -X -v ON_ERROR_STOP=1 -f "$MIGRATION" >/dev/null 2>&1; then
+  echo "FAIL: RLS migration ran without review" >&2
+  exit 1
+fi
+missing=$(psql -X -qAt -v ON_ERROR_STOP=1 -c "select count(*) from information_schema.columns where table_schema='public' and table_name='clients' and column_name='owner_user_id';")
+assert_result 0 "$missing" "no unexpected schema changes"
+
+echo "3. An unmatched synthetic owner must abort staged migration"
+psql -X -v ON_ERROR_STOP=1 -c "insert into public.clients values (3,'unmatched','Synthetic C','unmatched@example.test');" >/dev/null
+if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null 2>&1; then
+  echo "FAIL: unmatched business accepted" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -c "delete from public.clients where id=3;" >/dev/null
+
+echo "3b. Duplicate verified Auth emails must abort before UUID backfill"
+psql -X -v ON_ERROR_STOP=1 -c "insert into auth.users(id,email,email_confirmed_at) values ('33333333-3333-3333-3333-333333333333','OWNER-A@example.test',now());" >/dev/null
+if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null 2>&1; then
+  echo "FAIL: duplicate verified Auth identity accepted" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -c "delete from auth.users where id='33333333-3333-3333-3333-333333333333';" >/dev/null
+
+echo "3c. Duplicate client owner emails must abort before owner mapping"
+psql -X -v ON_ERROR_STOP=1 -c "insert into public.clients values (3,'duplicate-owner','Synthetic duplicate','OWNER-A@example.test');" >/dev/null
+if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null 2>&1; then
+  echo "FAIL: duplicate business owner identity accepted" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -c "delete from public.clients where id=3;" >/dev/null
+
+echo "4. An unowned synthetic legacy lead must abort staged migration"
+psql -X -v ON_ERROR_STOP=1 -c "insert into public.leads (id,name) values ('cccccccc-cccc-cccc-cccc-ccccccccccc1','Unowned synthetic');" >/dev/null
+if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null 2>&1; then
+  echo "FAIL: ambiguous lead ownership accepted" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -c "delete from public.leads where id='cccccccc-cccc-cccc-cccc-ccccccccccc1';" >/dev/null
+
+echo "4a. A confirmed Auth user without a provisioned workspace cannot own legacy leads"
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO auth.users(id,email,email_confirmed_at) VALUES ('33333333-3333-3333-3333-333333333333','unprovisioned@example.test',now());" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.leads(id,user_id,client_slug,name) VALUES ('ffffffff-ffff-ffff-ffff-fffffffffff1','33333333-3333-3333-3333-333333333333',NULL,'Unprovisioned legacy lead');" >/dev/null
+legacy_output=$(psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" 2>&1) && {
+  echo "FAIL: migration accepted a legacy lead owned by unprovisioned Auth user" >&2
+  exit 1
+}
+if [[ "$legacy_output" != *"Unverified or unprovisioned legacy lead owner"* ]]; then
+  echo "FAIL: migration failed for unexpected reason in legacy-owner test" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM public.leads WHERE id='ffffffff-ffff-ffff-ffff-fffffffffff1';" >/dev/null
+
+echo "4b. A valid Auth UUID does not make an unknown non-NULL business slug safe"
+psql -X -v ON_ERROR_STOP=1 -c "insert into public.leads (id,user_id,client_slug,name) values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1','$A','missing-business','Orphan synthetic slug');" >/dev/null
+orphan_output=$(psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" 2>&1) && {
+  echo "FAIL: migration accepted an orphan business slug with a valid Auth owner" >&2
+  exit 1
+}
+if [[ "$orphan_output" != *"Orphan business slug on lead"* ]]; then
+  echo "FAIL: migration failed for an unexpected reason during orphan-slug test" >&2
+  exit 1
+fi
+missing=$(psql -X -qAt -v ON_ERROR_STOP=1 -c "select count(*) from information_schema.columns where table_schema='public' and table_name='clients' and column_name='owner_user_id';")
+assert_result 0 "$missing" "orphan-slug rejection leaves schema unchanged"
+psql -X -v ON_ERROR_STOP=1 -c "delete from public.leads where id='eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1';" >/dev/null
+
+echo "5. Conflicting valid owner/tenant IDs must abort before migration"
+psql -X -v ON_ERROR_STOP=1 -c "insert into public.leads (id,user_id,client_slug,name) values ('dddddddd-dddd-dddd-dddd-ddddddddddd2','$A','business-b','Conflicting owner before migration');" >/dev/null
+if psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null 2>&1; then
+  echo "FAIL: conflicting tenant and Auth owner accepted" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -c "delete from public.leads where id='dddddddd-dddd-dddd-dddd-ddddddddddd2';" >/dev/null
+
+echo "5b. An unknown non-NULL UUID conflicting with a valid slug must abort"
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.leads (id,user_id,client_slug,name) VALUES ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee2','99999999-9999-9999-9999-999999999999','business-a','Unknown synthetic owner');" >/dev/null
+unknown_owner_output=$(psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" 2>&1) && {
+  echo "FAIL: migration accepted a mismatched unknown Auth UUID for a valid business slug" >&2
+  exit 1
+}
+if [[ "$unknown_owner_output" != *"Conflicting lead owner and business slug"* ]]; then
+  echo "FAIL: unexpected rejection reason in unknown-owner conflict test" >&2
+  exit 1
+fi
+missing=$(psql -X -qAt -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='clients' AND column_name='owner_user_id';")
+assert_result 0 "$missing" "unknown-owner mismatch aborts without schema changes"
+psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM public.leads WHERE id='eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee2';" >/dev/null
+
+echo "6. Approved proposal may run against ONLY synthetic complete-owner data"
+psql -X -v ON_ERROR_STOP=1 -c "SET leadflow.reviewed_rls_release = 'APPROVED_IN_STAGING';" -f "$MIGRATION" >/dev/null
+
+echo "6a. The approved synthetic migration satisfies both read-only release gates"
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|PASS" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "synthetic migration passes hardened policy gate"
+
+echo "6b. Extra permissive RLS policy must block hardened release gate"
+psql -X -v ON_ERROR_STOP=1 -c "CREATE POLICY unexpected_all_leads ON public.leads FOR SELECT TO authenticated USING (true);" >/dev/null
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|BLOCKED" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "unreviewed broad RLS policy blocks release"
+psql -X -v ON_ERROR_STOP=1 -c "DROP POLICY unexpected_all_leads ON public.leads;" >/dev/null
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|PASS" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "policy removal restores release gate"
+
+echo "6c. Any anonymous column-level UPDATE grant must block release"
+psql -X -v ON_ERROR_STOP=1 -c "GRANT UPDATE (status) ON TABLE public.leads TO anon;" >/dev/null
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|BLOCKED" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "anon column grant blocks deployment"
+psql -X -v ON_ERROR_STOP=1 -c "REVOKE UPDATE (status) ON TABLE public.leads FROM anon;" >/dev/null
+
+echo "6d. Anonymous TRUNCATE grant also blocks release"
+psql -X -v ON_ERROR_STOP=1 -c "GRANT TRUNCATE ON TABLE public.leads TO anon;" >/dev/null
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|BLOCKED" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "anon TRUNCATE grant blocks deployment"
+psql -X -v ON_ERROR_STOP=1 -c "REVOKE TRUNCATE ON TABLE public.leads FROM anon;" >/dev/null
+gate_output=$(psql -X -qAt -v ON_ERROR_STOP=1 -f security/proposals/p0-05-readonly-release-gate.sql)
+assert_result "PASS|PASS" "$(printf '%s\n' "$gate_output" | cut -d'|' -f1-2)" "revocation restores hardened release gate"
+
+echo "6. Anonymous cannot read private business/lead data"
+if psql -X -qAt -v ON_ERROR_STOP=1 -c "SET ROLE anon; select count(*) from public.clients;" >/dev/null 2>&1; then
+  echo "FAIL: anon business SELECT permitted" >&2
+  exit 1
+fi
+if psql -X -qAt -v ON_ERROR_STOP=1 -c "SET ROLE anon; select count(*) from public.leads;" >/dev/null 2>&1; then
+  echo "FAIL: anon lead SELECT permitted" >&2
+  exit 1
+fi
+if psql -X -qAt -v ON_ERROR_STOP=1 -c "SET ROLE anon; truncate public.leads;" >/dev/null 2>&1; then
+  echo "FAIL: anon TRUNCATE permitted" >&2
+  exit 1
+fi
+
+echo "6b. Anonymous writes and direct client provisioning must stay blocked"
+if psql -X -qAt -v ON_ERROR_STOP=1 -c "SET ROLE anon; INSERT INTO public.leads (user_id, client_slug, name) VALUES ('$A','business-a','Forbidden public write');" >/dev/null 2>&1; then
+  echo "FAIL: anonymous lead insert permitted" >&2
+  exit 1
+fi
+if psql -X -qAt -v ON_ERROR_STOP=1 -c "SET ROLE anon; UPDATE public.leads SET status='won' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';" >/dev/null 2>&1; then
+  echo "FAIL: anonymous lead update permitted" >&2
+  exit 1
+fi
+if psql -X -qAt -v ON_ERROR_STOP=1 -c "SET ROLE anon; DELETE FROM public.leads WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';" >/dev/null 2>&1; then
+  echo "FAIL: anonymous lead delete permitted" >&2
+  exit 1
+fi
+
+echo "7. Owner A and B may view ONLY their own business and lead rows"
+assert_result 1 "$(query_as "$A" "SELECT count(*) FROM public.clients;")" "owner A client profile"
+assert_result 1 "$(query_as "$B" "SELECT count(*) FROM public.clients;")" "owner B client profile"
+assert_result 3 "$(query_as "$A" "SELECT count(*) FROM public.leads;")" "owner A leads including legacy/public"
+assert_result 2 "$(query_as "$B" "SELECT count(*) FROM public.leads;")" "owner B leads including legacy"
+assert_result 0 "$(query_as "$A" "SELECT count(*) FROM public.leads WHERE client_slug='business-b';")" "A cannot view B"
+assert_result 0 "$(query_as "$B" "SELECT count(*) FROM public.leads WHERE client_slug='business-a';")" "B cannot view A"
+
+echo "7b. An authenticated but unprovisioned user cannot see legacy NULL-slug leads"
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.leads(id,user_id,client_slug,name) VALUES ('ffffffff-ffff-ffff-ffff-fffffffffff1','33333333-3333-3333-3333-333333333333',NULL,'Post-migration synthetic orphan');" >/dev/null
+assert_result 0 "$(query_as "33333333-3333-3333-3333-333333333333" "SELECT count(*) FROM public.leads WHERE id='ffffffff-ffff-ffff-ffff-fffffffffff1';")" "unprovisioned user denied legacy read"
+psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM public.leads WHERE id='ffffffff-ffff-ffff-ffff-fffffffffff1';" >/dev/null
+
+
+echo "8. Conflicting owner UUID must NEVER reveal another business slug"
+psql -X -v ON_ERROR_STOP=1 -c "INSERT INTO public.leads (id,user_id,client_slug,name) VALUES ('dddddddd-dddd-dddd-dddd-ddddddddddd1','$A','business-b','Conflicted synthetic lead');" >/dev/null
+assert_result 0 "$(query_as "$A" "SELECT count(*) FROM public.leads WHERE id='dddddddd-dddd-dddd-dddd-ddddddddddd1';")" "A cannot see B slug even if row user_id names A"
+assert_result 1 "$(query_as "$B" "SELECT count(*) FROM public.leads WHERE id='dddddddd-dddd-dddd-dddd-ddddddddddd1';")" "B slug owner can see this row"
+
+echo "9. Row status actions work for own lead, not the other owner"
+assert_result 1 "$(query_as "$A" "WITH changed AS (UPDATE public.leads SET status='contacted' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1' RETURNING id) SELECT count(*) FROM changed;")" "A update own status"
+assert_result 0 "$(query_as "$A" "WITH changed AS (UPDATE public.leads SET status='contacted' WHERE id='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1' RETURNING id) SELECT count(*) FROM changed;")" "A cannot update B"
+assert_result 0 "$(query_as "$B" "WITH changed AS (DELETE FROM public.leads WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1' RETURNING id) SELECT count(*) FROM changed;")" "B cannot delete A"
+
+echo "8b. Public-form rows with NULL user_id remain tenant-owned for updates and deletes"
+assert_result 1 "$(query_as "$A" "WITH changed AS (UPDATE public.leads SET status='qualified' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2' RETURNING id) SELECT count(*) FROM changed;")" "A can update own public lead"
+assert_result 0 "$(query_as "$B" "WITH changed AS (UPDATE public.leads SET status='won' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2' RETURNING id) SELECT count(*) FROM changed;")" "B cannot update A public lead"
+assert_result 0 "$(query_as "$B" "WITH changed AS (DELETE FROM public.leads WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2' RETURNING id) SELECT count(*) FROM changed;")" "B cannot delete A public lead"
+assert_result 1 "$(query_as "$A" "WITH changed AS (DELETE FROM public.leads WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2' RETURNING id) SELECT count(*) FROM changed;")" "A can delete own public lead"
+
+echo "8c. Follow-up scheduling persists for its owner and excludes the other tenant"
+assert_result 1 "$(query_as "$A" "WITH changed AS (UPDATE public.leads SET next_follow_up_at='2027-01-10T10:00:00Z' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1' RETURNING id) SELECT count(*) FROM changed;")" "A schedules own follow-up"
+assert_result 1 "$(query_as "$A" "SELECT count(*) FROM public.leads WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1' AND next_follow_up_at='2027-01-10T10:00:00Z';")" "follow-up persisted"
+assert_result 0 "$(query_as "$B" "WITH changed AS (UPDATE public.leads SET next_follow_up_at=NULL WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1' RETURNING id) SELECT count(*) FROM changed;")" "B cannot clear A follow-up"
+assert_result 1 "$(query_as "$A" "WITH changed AS (UPDATE public.leads SET next_follow_up_at=NULL WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1' RETURNING id) SELECT count(*) FROM changed;")" "A can clear own follow-up"
+
+echo "9. Owner A may create only own lead; prevent ownership reassignment"
+assert_result 1 "$(query_as "$A" "WITH added AS (INSERT INTO public.leads(user_id,client_slug,name) VALUES ('$A','business-a','A manual') RETURNING id) SELECT count(*) FROM added;")" "A inserts own"
+should_fail_as "$A" "INSERT INTO public.leads(user_id,client_slug,name) VALUES ('$A','business-b','Cross-business attack');"
+should_fail_as "$A" "INSERT INTO public.leads(user_id,client_slug,name) VALUES ('$B','business-a','Spoofed owner');"
+should_fail_as "$A" "UPDATE public.leads SET notes='Attempted unauthorized field change' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';"
+should_fail_as "$A" "UPDATE public.leads SET score=100 WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';"
+should_fail_as "$A" "UPDATE public.leads SET user_id='$B' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';"
+should_fail_as "$A" "INSERT INTO public.clients (id,slug,business_name,owner_email) VALUES (99,'forged','Forged','owner-a@example.test');"
+should_fail_as "$A" "UPDATE public.leads SET client_slug='business-b' WHERE id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1';"
+should_fail_as "$A" "DELETE FROM public.clients WHERE slug='business-a';"
+
+echo "PASS: review gating, synthetic two-tenant isolation and privilege restrictions"

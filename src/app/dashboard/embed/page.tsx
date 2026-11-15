@@ -1,0 +1,4 @@
+import {resolveOwnerScope} from '@/lib/server/owner-scope';import {redirect} from 'next/navigation';import {embedTag} from '@/lib/onboarding';import {EmbedCode} from '@/components/embed-code';
+export default async function EmbedPage(){const owner=await resolveOwnerScope();if(!owner.ok)redirect('/login');const code=embedTag(process.env.LEADFLOW_PUBLIC_ORIGIN,owner.slug);
+ return <main className="mx-auto max-w-2xl space-y-6 p-8"><h1 className="text-2xl font-semibold">Add your enquiry form to a website</h1><p>Paste this tag into your website where the form should appear. Your form must be enabled before it can accept enquiries.</p>{code?<EmbedCode code={code}/>:<p>Your public form link is not ready yet. Contact support to finish setup.</p>}<a className="underline" href="/dashboard">Back to leads</a></main>;
+}
