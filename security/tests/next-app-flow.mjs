@@ -152,8 +152,9 @@ export async function runNextApplicationFlow({a,b,password,authBase,restBase,jwt
     const {error}=await ownerA.client.auth.signOut();assert.equal(error,null);
     const signedOut=await http('/dashboard',{cookie:ownerA.cookie()});assert.equal(signedOut.status,307);assert.equal(new URL(signedOut.headers.get('location'),appBase).pathname,'/login');
     pass('authenticated login redirect and SDK sign-out clear SSR cookies; subsequent dashboard denied');
+    if(process.env.LEADFLOW_PLAYWRIGHT_FLOW==='YES')await (await import('./run-playwright.mjs')).runPlaywright({appBase,localApiBase,password,runtimeEnv});
     assert.ok(gatewayRequests>20);
-    pass('customer-flow boundary rehearsal completed without hosted providers or browser automation');
+    pass('customer-flow boundary rehearsal completed without hosted providers'+(process.env.LEADFLOW_PLAYWRIGHT_FLOW==='YES'?'; Playwright ran separately':' or browser automation'));
     app.kill('SIGTERM');
   }finally{
     for(const child of children)if(child.exitCode===null)child.kill('SIGTERM');
