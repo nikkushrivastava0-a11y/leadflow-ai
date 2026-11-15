@@ -4,6 +4,14 @@ export type EnvIssue={name:string;code:"missing"|"invalid"|"unsafe_target"};
 const PRODUCTION_REF="pqzawjeggyxarwdkdynz";
 export function validateServerEnv(env:Env):EnvIssue[]{
  const issues:EnvIssue[]=[];
+ const production=env.VERCEL_ENV==="production" || env.LEADFLOW_ENV==="production";
+ if(production){
+  if(env.LEADFLOW_ENV!=="production")issues.push({name:"LEADFLOW_ENV",code:"unsafe_target"});
+  if(!safeHttpsOrigin(env.AUTH_CALLBACK_ORIGIN))issues.push({name:"AUTH_CALLBACK_ORIGIN",code:env.AUTH_CALLBACK_ORIGIN?"invalid":"missing"});
+  const key=env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if(key && !(/^sb_publishable_[A-Za-z0-9_-]{20,}$/.test(key) || /^eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(key)))issues.push({name:"NEXT_PUBLIC_SUPABASE_ANON_KEY",code:"invalid"});
+ }
+
  if(env.LEADFLOW_SYNTHETIC_ONLY==="YES" && (env.VERCEL==="1" || env.VERCEL_ENV))issues.push({name:"LEADFLOW_SYNTHETIC_ONLY",code:"unsafe_target"});
  for(const name of ['PUBLIC_ENQUIRIES_ENABLED','LEADFLOW_AUTOMATION_ENABLED','LEADFLOW_EMAIL_ENABLED','LEADFLOW_FOLLOWUPS_ENABLED','LEADFLOW_WEEKLY_REPORTS_ENABLED','LEADFLOW_ONBOARDING_ENABLED','LEADFLOW_ANALYTICS_ENABLED','LEADFLOW_PRIVACY_NOTICE_ENABLED','LEADFLOW_PRIVACY_TOOLS_ENABLED','LEADFLOW_TRIALS_ENABLED','LEADFLOW_TEST_CHECKOUT_UI'])if(env[name]&&!['true','false'].includes(env[name]!))issues.push({name,code:'invalid'});
  const need=(name:string,valid:(v:string)=>boolean=()=>true)=>{const v=env[name];if(!v?.trim())issues.push({name,code:"missing"});else if(!valid(v))issues.push({name,code:"invalid"});};
@@ -42,5 +50,5 @@ export function validateServerEnv(env:Env):EnvIssue[]{
 /** Preview/staging must reject every invalid enabled integration before serving. */
 export function mustRefuseStartup(env:Env,issues:EnvIssue[]):boolean{
  return issues.some(i=>i.code==="unsafe_target") ||
-  ((env.VERCEL_ENV==="preview" || env.LEADFLOW_ENV==="staging") && issues.length>0);
+  ((env.VERCEL_ENV==="preview" || env.LEADFLOW_ENV==="staging" || env.VERCEL_ENV==="production" || env.LEADFLOW_ENV==="production") && issues.length>0);
 }

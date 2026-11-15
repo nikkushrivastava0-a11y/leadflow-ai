@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 
 for (const [port, overrides, expected] of [
+  [3116, { VERCEL_ENV: 'production', LEADFLOW_ENV: 'production', AUTH_CALLBACK_ORIGIN: 'http://localhost' }, 'AUTH_CALLBACK_ORIGIN:invalid'],
   [3114, { LEADFLOW_EMAIL_ENABLED: 'true', LEADFLOW_EMAIL_MODE: 'sandbox', RESEND_API_KEY: 'PRIVATE_STARTUP_SENTINEL' }, 'RESEND_FROM_EMAIL:missing'],
   [3115, { VERCEL_ENV: 'preview', LEADFLOW_SYNTHETIC_ONLY: 'YES' }, 'LEADFLOW_SYNTHETIC_ONLY:unsafe_target'],
 ]) {

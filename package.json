@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "playwright test",
-    "check:staging": "node --env-file-if-exists=.env.local scripts/staging-preflight.mjs"
+    "check:staging": "node --env-file-if-exists=.env.local scripts/staging-preflight.mjs",
+    "prebuild": "node --env-file-if-exists=.env.local scripts/release-preflight.mjs",
+    "prestart": "node --env-file-if-exists=.env.local scripts/release-preflight.mjs",
+    "check:release": "node --env-file-if-exists=.env.local scripts/release-preflight.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
