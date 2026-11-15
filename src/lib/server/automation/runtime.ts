@@ -1,6 +1,7 @@
 import "server-only";
 import { createPublicSubmissionClient } from "@/lib/server/public-submission-client";
 import { qualifyLead } from "@/lib/qualification";
+import { processNotification } from "./email.ts";
 import { timingSafeEqual } from "node:crypto";
 
 export type Job = { id: string; token: string; kind: string; lead_id: string | null; client_slug: string; payload: Record<string, unknown>; attempts: number };
@@ -16,6 +17,7 @@ export function automationDb() {
 }
 export type AutomationDb = ReturnType<typeof automationDb>;
 export async function processJob(db: AutomationDb, job: Job): Promise<Record<string, unknown>> {
+  if (["owner_alert", "customer_confirmation"].includes(job.kind)) return processNotification(db, job);
   if (job.kind !== "qualification" || !job.lead_id) throw new Error("unsupported_job");
   const { data: lead, error } = await db.from("leads").select("email,phone,source,notes").eq("id", job.lead_id).eq("client_slug", job.client_slug).maybeSingle();
   if (error) throw new Error("lead_read_failed");
@@ -29,7 +31,7 @@ export async function runAutomation(request: Request) {
   try {
     const db = automationDb();
     // Process bounded batches; claims use SKIP LOCKED plus token-owned leases.
-    const { data: jobs, error } = await db.rpc("automation_claim", { p_kinds: ["qualification"], p_limit: 4 });
+    const { data: jobs, error } = await db.rpc("automation_claim", { p_kinds: ["qualification", ...(process.env.LEADFLOW_EMAIL_ENABLED === "true" ? ["owner_alert", "customer_confirmation"] : [])], p_limit: 4 });
     if (error) throw new Error("claim_failed");
     let completed = 0, failed = 0;
     for (const job of (jobs || []) as Job[]) {
