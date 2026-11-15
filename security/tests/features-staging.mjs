@@ -1,5 +1,5 @@
 /** Isolated synthetic staging-copy rehearsal. Never connects to a hosted DB. */
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import assert from 'node:assert/strict';
 assert.equal(process.env.LEADFLOW_SYNTHETIC_ONLY,'YES');
@@ -72,6 +72,19 @@ if(migrations.some(f=>f.includes('followup_engine'))){
  console.log('PASS followup 24h/3d/7d dedupe, status exclusion and preference RLS');
 }
 
+if(migrations.some(f=>f.includes('duplicate_merge'))){
+ q("UPDATE leads SET created_at=now(),status='won',score=90,notes='Preserve notes'");
+ const args="'synthetic-a','Changed name','CUSTOMER@example.test','+91 9999999999'";
+ const first=JSON.parse(q(`SET ROLE service_role; SELECT merge_public_enquiry(${args})`));assert.equal(first.merged,true);
+ assert.equal(q("SELECT status||'|'||score||'|'||notes||'|'||name FROM leads"),'won|90|Preserve notes|Synthetic');
+ assert.equal(q('SELECT enquiry_count FROM leads'),'2');
+ await Promise.all(Array.from({length:12},()=>new Promise((resolve,reject)=>execFile('psql',['-X','-qAt','-v','ON_ERROR_STOP=1','-c',`SET ROLE service_role; SELECT merge_public_enquiry(${args})`],(error,stdout)=>error?reject(error):resolve(stdout)))));
+ assert.equal(q('SELECT count(*) FROM leads'),'1');assert.equal(q('SELECT enquiry_count FROM leads'),'14');
+ denied(owner+`SELECT merge_public_enquiry(${args})`);
+ const foreign=JSON.parse(q("SET ROLE service_role; SELECT merge_public_enquiry('synthetic-b','Synthetic','customer@example.test','9999999999')"));assert.equal(foreign.merged,false);
+ q("DELETE FROM leads WHERE client_slug='synthetic-b'");
+ console.log('PASS tenant-scoped exact-contact merge, preserved status/score/notes/name, denied owner RPC');
+}
 // FEATURE_CHECKS
 const rollbacks=readdirSync('supabase/rollbacks').filter(x=>x.endsWith('.sql')&&readFileSync('supabase/rollbacks/'+x,'utf8').trim()).sort().reverse();
 for(const f of rollbacks)q(readFileSync('supabase/rollbacks/'+f,'utf8'));

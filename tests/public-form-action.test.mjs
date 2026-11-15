@@ -13,10 +13,11 @@ const compiled = ts.transpileModule(readFileSync(new URL("../src/app/form/[slug]
 }).outputText;
 const secret = "synthetic-form-action-secret-not-live";
 
-function fixture({ enabled = true, business = { slug: "business-a", owner_user_id: "synthetic-owner" }, insertError = null, committed = true, receipt } = {}) {
+function fixture({ mergeEnabled = false, enabled = true, business = { slug: "business-a", owner_user_id: "synthetic-owner" }, insertError = null, committed = true, receipt } = {}) {
   const events = [];
   const jar = new Map(receipt ? [[receipts.ENQUIRY_RECEIPT_COOKIE, receipt]] : []);
   const client = {
+    rpc: async (name,args) => { events.push(["merge",name,args]); return {data:{lead_id:"synthetic",merged:true},error:insertError}; },
     from(table) {
       return table === "clients" ? {
         select(columns) {
@@ -49,7 +50,7 @@ function fixture({ enabled = true, business = { slug: "business-a", owner_user_i
   };
   const loadedModule = { exports: {} };
   vm.runInNewContext(compiled, { module: loadedModule, exports: loadedModule.exports,
-    process: { env: { PUBLIC_ENQUIRIES_ENABLED: enabled ? "true" : undefined, LEAD_GUARD_HASH_SECRET: secret, NODE_ENV: "production" } },
+    process: { env: { PUBLIC_ENQUIRIES_ENABLED: enabled ? "true" : undefined, LEADFLOW_DUPLICATE_MERGE_ENABLED: mergeEnabled ? "true" : undefined, LEAD_GUARD_HASH_SECRET: secret, NODE_ENV: "production" } },
     console: { error() {}, warn() {} },
     require: name => { assert.ok(Object.hasOwn(dependencies, name), `Unexpected import: ${name}`); return dependencies[name]; },
   });
@@ -133,4 +134,12 @@ test("successful save remains truthful when duplicate-guard confirmation fails",
   assert.equal(cookie.path, "/form/business-a");
   assert.equal(receipts.verifyEnquiryReceipt(f.jar.get(receipts.ENQUIRY_RECEIPT_COOKIE), "business-a", secret), true);
   assert.match(text(await f.page(props({ success: "true" }))), /Your enquiry was saved/);
+});
+
+test("merge path retains validation, shared guard and save receipt", async()=>{
+ const f=fixture({mergeEnabled:true});assert.equal(await submit(f),"/form/business-a?success=true");
+ assert.equal(f.events.some(e=>e[0]==="insert"),false);
+ const merge=f.events.find(e=>e[0]==="merge");assert.equal(merge[1],"merge_public_enquiry");assert.equal(merge[2].p_slug,"business-a");
+ assert.ok(f.events.findIndex(e=>e[0]==="reserve")<f.events.findIndex(e=>e[0]==="merge"));assert.equal(f.jar.size,1);
+ const failed=fixture({mergeEnabled:true,insertError:{code:"synthetic"}});assert.match(await submit(failed),/error=save/);assert.equal(failed.jar.size,0);
 });
