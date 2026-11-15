@@ -11,7 +11,7 @@ export function validateServerEnv(env:Env):EnvIssue[]{
   if(ref===PRODUCTION_REF)issues.push({name:"NEXT_PUBLIC_SUPABASE_URL",code:"unsafe_target"});
   if(env.LEADFLOW_SYNTHETIC_ONLY!=="YES"){need("LEADFLOW_STAGING_PROJECT_REF",v=>v!==PRODUCTION_REF&&v===ref);}
  }
- if(env.PUBLIC_ENQUIRIES_ENABLED==="true"||env.LEADFLOW_AUTOMATION_ENABLED==="true"){
+ if(env.PUBLIC_ENQUIRIES_ENABLED==="true"||env.LEADFLOW_AUTOMATION_ENABLED==="true"||env.LEADFLOW_ONBOARDING_ENABLED==="true"||env.LEADFLOW_PRIVACY_TOOLS_ENABLED==="true"){
   need("SUPABASE_SECRET_KEY",v=>v.startsWith("sb_secret_")&&v.length>=24);
  }
  if(env.PUBLIC_ENQUIRIES_ENABLED==="true"){
@@ -20,6 +20,7 @@ export function validateServerEnv(env:Env):EnvIssue[]{
   if(env.LEAD_GUARD_PROVIDER==="redis"){need("UPSTASH_REDIS_REST_URL");need("UPSTASH_REDIS_REST_TOKEN");}
  }
  if(env.LEADFLOW_AUTOMATION_ENABLED==="true")need("CRON_SECRET",v=>v.length>=32);
+ if(env.LEADFLOW_PRIVACY_NOTICE_ENABLED==="true")need("PRIVACY_CONTACT_EMAIL",v=>/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(v));
  if(env.GEMINI_API_KEY)need("GEMINI_MODEL",v=>/^[a-zA-Z0-9._-]{2,80}$/.test(v));
  if(env.LEADFLOW_EMAIL_ENABLED==="true"){
   need("LEADFLOW_EMAIL_MODE",v=>["sandbox","live-approved"].includes(v));

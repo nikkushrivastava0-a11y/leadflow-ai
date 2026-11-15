@@ -37,5 +37,6 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.merge_public_enquiry_tracked(text,text,text,text,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.merge_public_enquiry_tracked(text,text,text,text,text,text) TO service_role;
+GRANT INSERT(source_detail,source_campaign) ON public.leads TO service_role;
 GRANT UPDATE(source_detail,source_campaign) ON public.leads TO service_role;
 COMMIT;

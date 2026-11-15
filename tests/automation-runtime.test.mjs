@@ -21,7 +21,8 @@ function fixture(){
   if(name==='automation_prepare_email'){state.snapshot??={message:args.p_message,created_at:new Date().toISOString(),provider_id:null};return {data:state.snapshot,error:null};}
   return {data:null,error:null};
  },from(table){let patch;
-  const q={select(){return q;},eq(){return q;},update(v){patch=v;return q;},async maybeSingle(){
+  const q={select(){return q;},eq(){return q;},gt(){return q;},update(v){patch=v;return q;},async maybeSingle(){
+   if(table==='automation_jobs')return {data:state.noLease?null:{id:'synthetic-job'},error:null};
    if(table==='email_deliveries')return {data:state.snapshot,error:null};
    if(table==='leads')return {data:state.lead,error:state.leadError?{code:'synthetic'}:null};
    if(table==='automation_settings')return {data:state.settings,error:null};
@@ -74,4 +75,8 @@ test('owner mapping change cancels a prepared email instead of resending to form
  const prior=globalThis.fetch;globalThis.fetch=async()=>{throw new Error('No email should be sent');};
  try{assert.equal((await sendJobEmail(s.db,{...job,kind:'owner_alert'},async()=>{throw new Error('Reuse snapshot');})).delivery,'recipient_changed');}finally{globalThis.fetch=prior;}
  });
+});
+
+test('outbox cannot deliver without a fresh token-owned lease',async()=>{
+ await configured(async()=>{const s=fixture();s.noLease=true;await assert.rejects(sendJobEmail(s.db,{...job,kind:'customer_confirmation'},async()=>({from:'sender@example.test',to:'customer@example.test',subject:'Test',text:'Test'})),/lease/);});
 });

@@ -20,6 +20,8 @@ export async function sendJobEmail(db: AutomationDb, job: Job, build: () => Prom
     const current = await ownerEmail(db, job.client_slug);
     if (current.email.toLowerCase() !== String(saved.message.to).toLowerCase()) return { delivery: "recipient_changed" };
   }
+  const {data:lease,error:leaseError}=await db.from("automation_jobs").select("id").eq("id",job.id).eq("token",job.token).eq("status","processing").gt("leased_until",new Date(Date.now()+30000).toISOString()).maybeSingle();
+  if(leaseError||!lease)throw new Error("email_lease_unavailable");
   const key = process.env.RESEND_API_KEY;
   if (!key) throw new Error("email_unconfigured");
   const id = await deliverEmail(saved.message as EmailMessage, `leadflow/${job.id}`, key);
@@ -35,6 +37,11 @@ export async function ownerEmail(db: AutomationDb, slug: string) {
   return { email: data.user.email, name: client.business_name || "The business" };
 }
 export async function processNotification(db: AutomationDb, job: Job) {
+  if(job.kind==="customer_confirmation"&&process.env.LEADFLOW_PRIVACY_NOTICE_ENABLED==="true"){
+    const {data,error}=await db.from("leads").select("consented_at").eq("id",job.lead_id).eq("client_slug",job.client_slug).maybeSingle();
+    if(error)throw new Error("consent_read_failed");
+    if(!data?.consented_at)return {delivery:"skipped_no_consent"};
+  }
   return sendJobEmail(db, job, async () => {
     if (!job.lead_id) return null;
     const { data: lead, error } = await db.from("leads").select("email").eq("id", job.lead_id).eq("client_slug", job.client_slug).maybeSingle();
