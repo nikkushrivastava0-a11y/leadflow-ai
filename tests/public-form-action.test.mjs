@@ -5,6 +5,7 @@ import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
 import { isValidBusinessSlug, validatePublicLead } from "../src/lib/public-leads.ts";
+import * as locales from "../src/lib/enquiry-locale.ts";
 import * as analytics from "../src/lib/lead-analytics.ts";
 import * as receipts from "../src/lib/server/public-enquiry-receipt.ts";
 
@@ -31,6 +32,7 @@ function fixture({ mergeEnabled = false, enabled = true, business = { slug: "bus
     },
   };
   const dependencies = {
+    "@/lib/enquiry-locale": locales,
     "@/lib/lead-analytics": analytics,
     "react/jsx-runtime": require("react/jsx-runtime"),
     "@/lib/server/public-submission-client": { createPublicSubmissionClient: () => client },

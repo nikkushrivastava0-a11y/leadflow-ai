@@ -1,3 +1,4 @@
+import { enquiryLanguage, enquiryCopy } from "@/lib/enquiry-locale";
 import { attribution } from "@/lib/lead-analytics";
 import { createPublicSubmissionClient } from "@/lib/server/public-submission-client";
 import { notFound, redirect } from "next/navigation";
@@ -13,10 +14,12 @@ function intakeEnabled() {
 
 export default async function DynamicLeadForm(props: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ success?: string; error?: string; utm_source?: string; utm_campaign?: string }>;
+  searchParams: Promise<{ success?: string; error?: string; utm_source?: string; utm_campaign?: string; lang?: string }>;
 }) {
   const params = await props.params;
   const searchParams = await props.searchParams;
+  const lang=enquiryLanguage(searchParams.lang), copy=enquiryCopy[lang];
+  const suffix=lang==="en"?"":"&lang="+lang;
   
   // URL se slug nikal rahe hain (e.g., 'cafe-xyz')
   const slug = params.slug;
@@ -30,8 +33,8 @@ export default async function DynamicLeadForm(props: {
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
         <div className="text-center rounded-xl bg-white p-8 shadow-lg max-w-sm">
           <div className="text-4xl mb-4" aria-hidden="true">{confirmed ? "✓" : "?"}</div>
-          <h2 className="text-2xl font-bold text-green-600 mb-2">{confirmed ? "Enquiry saved" : "Submission status unavailable"}</h2>
-          <p className="text-slate-600">{confirmed ? "Your enquiry was saved. The business can review it in its workspace." : "This page cannot confirm a saved enquiry. Contact the business if you are unsure before submitting again."}</p>
+          <h2 className="text-2xl font-bold text-green-600 mb-2">{confirmed ? copy.saved : "Submission status unavailable"}</h2>
+          <p className="text-slate-600">{confirmed ? copy.savedText : "This page cannot confirm a saved enquiry. Contact the business if you are unsure before submitting again."}</p>
         </div>
       </div>
     );
@@ -52,7 +55,7 @@ export default async function DynamicLeadForm(props: {
             {invalidDetails ? "Check your details" : unavailableBusiness ? "Form unavailable" : slowDown ? "Too many requests" : duplicate ? "Recent similar enquiry" : guardUnavailable ? "Temporarily unavailable" : "Submission not saved"}
           </p>
           <h1 className="mt-3 text-2xl font-bold text-slate-900">
-            {invalidDetails
+            {lang!=="en"?copy.error:invalidDetails
               ? "Some details need correcting."
               : unavailableBusiness
                 ? "This business cannot accept enquiries right now."
@@ -87,10 +90,10 @@ export default async function DynamicLeadForm(props: {
   // Public action: validated input, shared rate guard, server-only DB writer.
   async function submitLead(formData: FormData) {
     "use server";
-    if (!intakeEnabled()) redirect(`/form/${encodeURIComponent(slug)}?error=guard`);
+    if (!intakeEnabled()) redirect(`/form/${encodeURIComponent(slug)}?error=guard${suffix}`);
     const validated = validatePublicLead(formData);
     if (!validated.ok) {
-      redirect("/form/" + encodeURIComponent(slug) + "?error=invalid");
+      redirect("/form/" + encodeURIComponent(slug) + "?error=invalid" + suffix);
     }
 
     const { name, email, phone } = validated.value;
@@ -113,7 +116,7 @@ export default async function DynamicLeadForm(props: {
         reservation.reason === "rate_limited" ? "busy" :
         reservation.reason === "duplicate" ? "duplicate" :
         reservation.reason === "spam" ? "invalid" : "guard";
-      redirect("/form/" + encodeURIComponent(slug) + "?error=" + errorState);
+      redirect("/form/" + encodeURIComponent(slug) + "?error=" + errorState + suffix);
     }
 
     const supabase = createPublicSubmissionClient();
@@ -139,7 +142,7 @@ export default async function DynamicLeadForm(props: {
 
     if (!businessExists) {
       await reservation.release();
-      redirect("/form/" + encodeURIComponent(slug) + "?error=business");
+      redirect("/form/" + encodeURIComponent(slug) + "?error=business" + suffix);
     }
 
     // The shared guard always runs first. Optional SQL merging serializes
@@ -185,7 +188,7 @@ export default async function DynamicLeadForm(props: {
 
     // Refresh the owner workspace only after the database accepted the insert.
     revalidatePath("/dashboard");
-    redirect(`/form/${encodeURIComponent(slug)}?success=true`);
+    redirect(`/form/${encodeURIComponent(slug)}?success=true${suffix}`);
   }
 
   // Keep intake closed until the coordinated database/auth release is approved.
@@ -194,15 +197,15 @@ export default async function DynamicLeadForm(props: {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
         <section role="status" className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
-          <h1 className="text-2xl font-bold text-slate-900">Enquiry form unavailable</h1>
-          <p className="mt-3 text-slate-700">This business is not accepting online enquiries yet. Please contact the business directly.</p>
+          <h1 className="text-2xl font-bold text-slate-900">{copy.unavailable}</h1>
+          <p className="mt-3 text-slate-700">{copy.unavailableText}</p>
         </section>
       </main>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#a65d31] p-4">
+    <div className="flex min-h-screen items-center justify-center bg-[#a65d31] p-4" lang={lang==="hinglish"?"hi-Latn":lang}>
       {/* Background color wahi brown rakha hai jo tere screenshot mein tha */}
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
         {/* Dynamic Title - Form ka naam URL ke hisaab se change hoga */}
@@ -210,6 +213,7 @@ export default async function DynamicLeadForm(props: {
           {slug.replace('-', ' ')}
         </h1>
         
+        <nav aria-label="Language" className="mb-4 flex gap-4 text-sm underline">{([['en','English'],['hi','हिन्दी'],['hinglish','Hinglish']] as const).map(([value,label])=><a key={value} href={`/form/${slug}?lang=${value}&utm_source=${attribution(searchParams.utm_source,searchParams.utm_campaign).source_detail}&utm_campaign=${encodeURIComponent(attribution(searchParams.utm_source,searchParams.utm_campaign).source_campaign)}`}>{label}</a>)}</nav>
         <form action={submitLead} className="flex flex-col gap-4">
           <input type="hidden" name="utm_source" value={attribution(searchParams.utm_source,searchParams.utm_campaign).source_detail}/>
           <input type="hidden" name="utm_campaign" value={attribution(searchParams.utm_source,searchParams.utm_campaign).source_campaign}/>
@@ -224,19 +228,19 @@ export default async function DynamicLeadForm(props: {
             />
           </div>
           <div>
-            <label htmlFor="lead-name" className="mb-1 block text-sm font-medium text-[#a65d31]">Full Name</label>
+            <label htmlFor="lead-name" className="mb-1 block text-sm font-medium text-[#a65d31]">{copy.name}</label>
             <input required id="lead-name" type="text" name="name" autoComplete="name" maxLength={100} minLength={2} className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="John Doe" />
           </div>
           <div>
-            <label htmlFor="lead-email" className="mb-1 block text-sm font-medium text-[#a65d31]">Email Address</label>
+            <label htmlFor="lead-email" className="mb-1 block text-sm font-medium text-[#a65d31]">{copy.email}</label>
             <input required id="lead-email" type="email" name="email" autoComplete="email" maxLength={254} className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="john@example.com" />
           </div>
           <div>
-            <label htmlFor="lead-phone" className="mb-1 block text-sm font-medium text-[#a65d31]">Phone Number</label>
+            <label htmlFor="lead-phone" className="mb-1 block text-sm font-medium text-[#a65d31]">{copy.phone}</label>
             <input required id="lead-phone" type="tel" name="phone" autoComplete="tel" maxLength={25} className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="+91 98765 43210" />
           </div>
           <button type="submit" className="mt-4 w-full rounded-md bg-[#a65d31] p-2.5 text-white hover:bg-[#8a4b26] font-semibold transition-colors">
-            Submit
+            {copy.submit}
           </button>
           <p className="text-center text-xs text-gray-400 mt-2">Powered by LeadFlow AI</p>
         </form>
