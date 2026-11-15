@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { testAccess } from "@/lib/server/billing/access";
 import { redirect } from "next/navigation";
 export default async function TestProPage(){

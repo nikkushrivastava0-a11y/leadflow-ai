@@ -21,6 +21,9 @@ jobs:
       PGPASSWORD: synthetic-only
       PGDATABASE: leadflow_feature_staging
       LEADFLOW_SYNTHETIC_ONLY: YES
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: synthetic-build-only
+      NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -32,3 +35,5 @@ jobs:
       - run: node --test tests/*.test.ts tests/*.test.mjs security/tests/*.test.mjs
       - run: npx tsc --noEmit
       - run: npm run lint
+      - run: npm run build
+      - run: node scripts/http-smoke.mjs

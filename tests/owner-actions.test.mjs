@@ -30,7 +30,7 @@ const hook = registerHooks({
     return nextResolve(specifier, context);
   },
 });
-const { updateLeadStatus, deleteLead, updateLeadFollowUp } = await import(new URL("actions.ts", root));
+const { addLead, updateLeadStatus, deleteLead, updateLeadFollowUp } = await import(new URL("actions.ts", root));
 hook.deregister();
 const owner = "00000000-0000-4000-8000-000000000001";
 const ids = Array.from({ length: 3 }, (_, i) => `00000000-0000-4000-8000-00000000001${i}`);
@@ -125,4 +125,14 @@ test("database errors and zero-row writes cannot report follow-up success", asyn
   zeroRows.rows = [];
   assert.ok((await updateLeadFollowUp(ids[0], null)).error);
   assert.deepEqual(zeroRows.revalidated, []);
+});
+
+test("manual creation saves immediate rules and leaves model work to durable insert jobs",async()=>{
+ const state=fixture();let inserted;state.scope.supabase.from=()=>({insert(value){inserted=value;return {select(){return {maybeSingle:async()=>({data:{id:ids[0]},error:null})};}};}});
+ const prior=globalThis.fetch,priorKey=process.env.GEMINI_API_KEY;let called=false;
+ globalThis.fetch=async()=>{called=true;throw new Error("Manual creation must not call a model");};process.env.GEMINI_API_KEY="synthetic";
+ try{
+  const result=await addLead({name:"Synthetic Manual",email:"synthetic@example.test",phone:"9999999999",source:"referral",notes:"Please call me about pricing"});
+  assert.equal(result.success,true);assert.equal(called,false);assert.equal(inserted.client_slug,"business-a");assert.equal(inserted.user_id,owner);assert.match(inserted.score_reason,/Rule-based estimate/);assert.ok(inserted.score>=70&&inserted.score<=100);
+ }finally{globalThis.fetch=prior;if(priorKey===undefined)delete process.env.GEMINI_API_KEY;else process.env.GEMINI_API_KEY=priorKey;}
 });

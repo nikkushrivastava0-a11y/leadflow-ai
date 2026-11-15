@@ -12,6 +12,10 @@ const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "star
     PUBLIC_ENQUIRIES_ENABLED: "false",
     SUPABASE_SECRET_KEY: "",
     GEMINI_API_KEY: "",
+    CRON_SECRET: "",
+    LEADFLOW_AUTOMATION_ENABLED: "false",
+    LEADFLOW_BILLING_MODE: "disabled",
+    LEADFLOW_TEST_CHECKOUT_UI: "false",
     UPSTASH_REDIS_REST_URL: "",
     UPSTASH_REDIS_REST_TOKEN: "",
     LEAD_GUARD_HASH_SECRET: "",
@@ -35,6 +39,10 @@ try {
     ["/", 200, "LeadFlow AI"],
     ["/login", 200, "Welcome back"],
     ["/dashboard", 307, null],
+    ["/dashboard/activity", 307, null],
+    ["/dashboard/settings", 307, null],
+    ["/dashboard/billing", 307, null],
+    ["/dashboard/pro", 307, null],
     ["/form", 307, null],
     ["/form/synthetic-business", 200, "Enquiry form unavailable"],
     ["/form/Bad_Slug", 404, null],
@@ -54,6 +62,13 @@ try {
     }
     console.log(`PASS HTTP ${status} ${path}`);
   }
+  const cron = await fetch(base + "/api/cron/automation");
+  assert.equal(cron.status, 401); assert.equal(cron.headers.get("cache-control"),"no-store");
+  console.log("PASS HTTP 401 unauthenticated cron");
+  const access = await fetch(base + "/api/billing/access");
+  assert.deepEqual(await access.json(), {active:false,reason:"disabled"});
+  assert.equal(access.headers.get("cache-control"),"no-store");
+  console.log("PASS HTTP disabled test access");
   const response = await fetch(base + "/api/checkout", { method: "POST", signal: AbortSignal.timeout(5000) });
   assert.equal(response.status, 503);
   assert.equal(response.headers.get("cache-control"), "no-store");
