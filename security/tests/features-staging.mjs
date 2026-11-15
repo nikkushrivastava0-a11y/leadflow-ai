@@ -100,6 +100,18 @@ if(migrations.some(f=>f.includes('billing_test_access'))){
  denied(owner+"UPDATE billing_test_entitlements SET revoked_at=NULL");
  console.log('PASS failed-payment idempotency, captured test access, tenant isolation, expiry, revocation');
 }
+if(migrations.some(f=>f.includes('weekly_owner_report'))){
+ assert.equal(q('SET ROLE service_role; SELECT automation_schedule_weekly()'),'2');assert.equal(q('SET ROLE service_role; SELECT automation_schedule_weekly()'),'0');
+ const week=JSON.parse(q("SELECT payload FROM automation_jobs WHERE kind='weekly_report' AND client_slug='synthetic-a'"));
+ q(`UPDATE leads SET created_at='${week.start}'::timestamptz+interval '1 day',status='won',score=90`);
+ const metrics=JSON.parse(q(`SET ROLE service_role; SELECT automation_weekly_metrics('synthetic-a','${week.start}','${week.end}')`));
+ assert.deepEqual(metrics,{total:1,hot:1,won:1,unanswered:0,average_score:90});
+ const jobId=q("SELECT id FROM automation_jobs WHERE kind='weekly_report' AND client_slug='synthetic-a'");
+ q(`SET ROLE service_role; INSERT INTO weekly_owner_reports(job_id,client_slug,period_start,period_end,metrics) VALUES('${jobId}','synthetic-a','${week.start}','${week.end}','${JSON.stringify(metrics)}')`);
+ assert.equal(q(owner+'SELECT count(*) FROM weekly_owner_reports'),'1');assert.equal(q(other+'SELECT count(*) FROM weekly_owner_reports'),'0');
+ denied(owner+`SELECT automation_weekly_metrics('synthetic-b','${week.start}','${week.end}')`);
+ console.log('PASS IST weekly schedule/dedupe, exact cohort metrics and report RLS');
+}
 // FEATURE_CHECKS
 const rollbacks=readdirSync('supabase/rollbacks').filter(x=>x.endsWith('.sql')&&readFileSync('supabase/rollbacks/'+x,'utf8').trim()).sort().reverse();
 for(const f of rollbacks)q(readFileSync('supabase/rollbacks/'+f,'utf8'));
