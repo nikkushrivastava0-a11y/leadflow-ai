@@ -135,6 +135,13 @@ if(migrations.some(f=>f.includes('pilot_onboarding'))){
  assert.equal(q(owner+"SELECT count(*) FROM clients WHERE slug='"+slug+"'"),'0');
  console.log('PASS confirmed, idempotent provisioning, finite trial and no owner self-claim RPC');
 }
+if(migrations.some(f=>f.includes('pilot_analytics'))){
+ q("UPDATE leads SET created_at=now()-interval '2 hours',first_contacted_at=NULL,status='new',source_detail='instagram'");q(owner+"UPDATE leads SET status='contacted'");
+ const metrics=JSON.parse(q(owner+"SELECT pilot_analytics('synthetic-a')"));assert.equal(metrics.leads,1);assert.equal(metrics.sources.instagram,1);assert.ok(metrics.response_seconds>=7200&&metrics.response_seconds<7210);
+ denied(other+"SELECT pilot_analytics('synthetic-a')");denied(other+"SELECT pilot_export_leads('synthetic-a')");
+ assert.equal(JSON.parse(q(owner+"SELECT pilot_export_leads('synthetic-a')")).length,1);
+ console.log('PASS owner-scoped exact analytics/export and first response proxy');
+}
 // FEATURE_CHECKS
 const rollbacks=readdirSync('supabase/rollbacks').filter(x=>x.endsWith('.sql')&&readFileSync('supabase/rollbacks/'+x,'utf8').trim()).sort().reverse();
 for(const f of rollbacks)q(readFileSync('supabase/rollbacks/'+f,'utf8'));

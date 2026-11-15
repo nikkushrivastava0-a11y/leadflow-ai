@@ -1,3 +1,4 @@
+import { attribution } from "@/lib/lead-analytics";
 import { createPublicSubmissionClient } from "@/lib/server/public-submission-client";
 import { notFound, redirect } from "next/navigation";
 import { isValidBusinessSlug, validatePublicLead } from "@/lib/public-leads";
@@ -12,7 +13,7 @@ function intakeEnabled() {
 
 export default async function DynamicLeadForm(props: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ success?: string; error?: string }>;
+  searchParams: Promise<{ success?: string; error?: string; utm_source?: string; utm_campaign?: string }>;
 }) {
   const params = await props.params;
   const searchParams = await props.searchParams;
@@ -93,6 +94,8 @@ export default async function DynamicLeadForm(props: {
     }
 
     const { name, email, phone } = validated.value;
+    const tracked=attribution(formData.get("utm_source"),formData.get("utm_campaign"));
+    const trackEnabled=process.env.LEADFLOW_ANALYTICS_ENABLED === "true";
 
     // An anonymous browser key must NOT be able to insert straight into
     // public.leads after RLS hardening. Enforce the Redis guard before using
@@ -144,9 +147,9 @@ export default async function DynamicLeadForm(props: {
     let insertFailed = false;
     try {
       const { error } = process.env.LEADFLOW_DUPLICATE_MERGE_ENABLED === "true"
-        ? await supabase.rpc("merge_public_enquiry", { p_slug: slug, p_name: name, p_email: email, p_phone: phone })
+        ? await supabase.rpc(trackEnabled?"merge_public_enquiry_tracked":"merge_public_enquiry", { p_slug: slug, p_name: name, p_email: email, p_phone: phone, ...(trackEnabled?{p_source:tracked.source_detail,p_campaign:tracked.source_campaign}:{}) })
         : await supabase.from("leads").insert([{
-          name, email, phone, source: "Website Form", status: "new", score: 50,
+          ...(trackEnabled?tracked:{}), name, email, phone, source: "Website Form", status: "new", score: 50,
           score_reason: "Unscored enquiry (AI analysis has not run).", client_slug: slug,
         }]);
       if (error) {
@@ -208,6 +211,8 @@ export default async function DynamicLeadForm(props: {
         </h1>
         
         <form action={submitLead} className="flex flex-col gap-4">
+          <input type="hidden" name="utm_source" value={attribution(searchParams.utm_source,searchParams.utm_campaign).source_detail}/>
+          <input type="hidden" name="utm_campaign" value={attribution(searchParams.utm_source,searchParams.utm_campaign).source_campaign}/>
           <div className="absolute -left-[9999px] h-px w-px overflow-hidden" aria-hidden="true">
             <label htmlFor="company_website">Do not fill out this field</label>
             <input
