@@ -44,10 +44,15 @@ Private trigger functions enqueue jobs and append audit entries atomically with 
 ```bash
 npm ci
 cp .env.example .env.local
+npm run check:staging
 npm run dev
 ```
 
 For Auth/CRM, populate the public Supabase URL/API key and use an **isolated development project** with reviewed owner mappings/schema. A confirmed signup alone does not provision a business. Open `http://localhost:3000`; missing business setup correctly shows access pending. Do not link the CLI to production or run `supabase db push` as a shortcut.
+
+Use Node 24 for the preflight and regression scripts. `check:staging` reads `.env.local` if present, checks configuration locally, and prints only variable names/error codes. It exits nonzero for invalid staging setup, a production target, or a hosted synthetic-test bypass. It performs no database or provider requests; `configured` is not a hosted acceptance result. Preview/staging startup now refuses every validation error, including missing enabled-worker/mail credentials.
+
+The 16 November inventory found both active free Supabase slots occupied by LeadFlow and DeadEnd; creating a staging project was rejected for that limit. Continue the synthetic local/CI checks below. A hosted stage needs a separately selected free slot; do not pause another project or upgrade a plan to bypass the limit.
 
 Feature SQL assumes the reviewed PR55 owner/RLS cutover exists. It is **not** an empty-database bootstrap. Schema-only synthetic setup and tests are described below. Rehearse against an approved restored schema before any separately approved hosted migration. Migration 05 refuses an existing test ledger so an operator must review prior proposal application rather than overwrite it.
 
