@@ -1,6 +1,7 @@
 import "server-only";
 import { createPublicSubmissionClient } from "@/lib/server/public-submission-client";
 import { qualifyLead } from "@/lib/qualification";
+import { processFollowup } from "./followup.ts";
 import { processNotification } from "./email.ts";
 import { timingSafeEqual } from "node:crypto";
 
@@ -17,6 +18,7 @@ export function automationDb() {
 }
 export type AutomationDb = ReturnType<typeof automationDb>;
 export async function processJob(db: AutomationDb, job: Job): Promise<Record<string, unknown>> {
+  if (job.kind === "followup") return processFollowup(db, job);
   if (["owner_alert", "customer_confirmation"].includes(job.kind)) return processNotification(db, job);
   if (job.kind !== "qualification" || !job.lead_id) throw new Error("unsupported_job");
   const { data: lead, error } = await db.from("leads").select("email,phone,source,notes").eq("id", job.lead_id).eq("client_slug", job.client_slug).maybeSingle();
@@ -30,8 +32,12 @@ export async function runAutomation(request: Request) {
   if (process.env.LEADFLOW_AUTOMATION_ENABLED !== "true") return Response.json({ enabled: false }, { headers });
   try {
     const db = automationDb();
+    if (process.env.LEADFLOW_EMAIL_ENABLED === "true" && process.env.LEADFLOW_FOLLOWUPS_ENABLED === "true") {
+      const { error } = await db.rpc("automation_schedule_followups");
+      if (error) throw new Error("followup_schedule_failed");
+    }
     // Process bounded batches; claims use SKIP LOCKED plus token-owned leases.
-    const { data: jobs, error } = await db.rpc("automation_claim", { p_kinds: ["qualification", ...(process.env.LEADFLOW_EMAIL_ENABLED === "true" ? ["owner_alert", "customer_confirmation"] : [])], p_limit: 4 });
+    const { data: jobs, error } = await db.rpc("automation_claim", { p_kinds: ["qualification", ...(process.env.LEADFLOW_EMAIL_ENABLED === "true" ? ["owner_alert", "customer_confirmation", ...(process.env.LEADFLOW_FOLLOWUPS_ENABLED === "true" ? ["followup"] : [])] : [])], p_limit: 2 });
     if (error) throw new Error("claim_failed");
     let completed = 0, failed = 0;
     for (const job of (jobs || []) as Job[]) {
