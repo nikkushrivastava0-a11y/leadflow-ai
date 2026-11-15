@@ -16,6 +16,10 @@ export async function sendJobEmail(db: AutomationDb, job: Job, build: () => Prom
   }
   // Resend keys expire after 24h. Never resend an ambiguous attempt after 20h.
   if (Date.now() - Date.parse(saved.created_at) >= 20 * 3600_000) return { delivery: "needs_review" };
+  if (["owner_alert", "followup", "weekly_report"].includes(job.kind)) {
+    const current = await ownerEmail(db, job.client_slug);
+    if (current.email.toLowerCase() !== String(saved.message.to).toLowerCase()) return { delivery: "recipient_changed" };
+  }
   const key = process.env.RESEND_API_KEY;
   if (!key) throw new Error("email_unconfigured");
   const id = await deliverEmail(saved.message as EmailMessage, `leadflow/${job.id}`, key);

@@ -73,6 +73,11 @@ export async function runNextApplicationFlow({a,b,password,authBase,restBase,jwt
     if(publicFixture)await publicFixture.listen(handler);
     // Add only synthetic presentation fields required by the real dashboard.
     sql("ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now(); ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS email_sent boolean DEFAULT false;");
+    if(process.env.LEADFLOW_FEATURE_FLOW==='YES') {
+      const migrations=readdirSync('supabase/migrations').filter(f=>f.endsWith('.sql')).sort();
+      for(const file of migrations)sql("SET leadflow.feature_migrations='REVIEWED';\n"+readFileSync('supabase/migrations/'+file,'utf8'));
+      sql("NOTIFY pgrst, 'reload schema'");
+    }
     const build=start(['build','--webpack']);await exit(build);
     pass('production build against loopback-only synthetic configuration');
     const app=start(['start','--hostname','127.0.0.1','--port',String(appPort)]);
@@ -99,6 +104,7 @@ export async function runNextApplicationFlow({a,b,password,authBase,restBase,jwt
     assert.equal(dashboardA.status,200);assert.ok(dashboardA.text.includes('A own')&&dashboardA.text.includes('A public'));assert.ok(!dashboardA.text.includes('B own'));assert.ok(!dashboardA.text.includes('Leads unavailable'));
     const dashboardB=await http('/dashboard',{cookie:ownerB.cookie()});assert.equal(dashboardB.status,200);assert.ok(dashboardB.text.includes('B own'));assert.ok(!dashboardB.text.includes('A own'));
     pass('real SDK session cookies -> Proxy -> owner scope -> server-rendered dashboard isolate two owners');
+    if(process.env.LEADFLOW_FEATURE_FLOW==='YES')await (await import('./next-features-http.mjs')).verifyFeatureHttp({appBase,ownerA,ownerB,sql,http});
     const unprovisioned=await ownerCookie(null,'pending-workspace@example.test',true);
     const pendingPage=await http('/dashboard',{cookie:unprovisioned.cookie()});
     assert.equal(pendingPage.status,200);assert.ok(pendingPage.text.includes('Workspace access pending'),'verified signup without business must show pending workspace');assert.ok(!pendingPage.text.includes('A own')&&!pendingPage.text.includes('B own'),'unprovisioned signup cannot read another workspace');

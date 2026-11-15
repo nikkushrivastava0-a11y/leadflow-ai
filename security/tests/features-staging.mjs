@@ -112,6 +112,19 @@ if(migrations.some(f=>f.includes('weekly_owner_report'))){
  denied(owner+`SELECT automation_weekly_metrics('synthetic-b','${week.start}','${week.end}')`);
  console.log('PASS IST weekly schedule/dedupe, exact cohort metrics and report RLS');
 }
+if(migrations.some(f=>f.includes('status_audit'))){
+ const auditCount=Number(q("SELECT count(*) FROM lead_activity WHERE event='lead.status_changed'"));
+ q(owner+"UPDATE leads SET status='contacted' WHERE client_slug='synthetic-a'");
+ assert.equal(q("SELECT count(*) FROM lead_activity WHERE event='lead.status_changed'"),String(auditCount+1));
+ assert.equal(q("SELECT details->>'from'||'|'||(details->>'to')||'|'||actor_user_id FROM lead_activity WHERE event='lead.status_changed' ORDER BY created_at DESC LIMIT 1"),'won|contacted|11111111-1111-1111-1111-111111111111');
+ q(owner+"UPDATE leads SET status='contacted' WHERE client_slug='synthetic-a'");assert.equal(q("SELECT count(*) FROM lead_activity WHERE event='lead.status_changed'"),String(auditCount+1));
+ assert.equal(q(other+"SELECT count(*) FROM lead_activity WHERE event='lead.status_changed'"),'0');
+ denied(owner+"UPDATE lead_activity SET event='forged'");denied(owner+"DELETE FROM lead_activity");
+ q("ALTER TABLE lead_activity ADD CONSTRAINT synthetic_audit_failure CHECK(event<>'lead.status_changed') NOT VALID");
+ denied(owner+"UPDATE leads SET status='won' WHERE client_slug='synthetic-a'");
+ assert.equal(q('SELECT status FROM leads'),'contacted');q('ALTER TABLE lead_activity DROP CONSTRAINT synthetic_audit_failure');
+ console.log('PASS atomic status audit, actor/before/after, no-op suppression, append-only RLS and failure rollback');
+}
 // FEATURE_CHECKS
 const rollbacks=readdirSync('supabase/rollbacks').filter(x=>x.endsWith('.sql')&&readFileSync('supabase/rollbacks/'+x,'utf8').trim()).sort().reverse();
 for(const f of rollbacks)q(readFileSync('supabase/rollbacks/'+f,'utf8'));

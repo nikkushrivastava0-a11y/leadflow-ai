@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { scoreLead } from "@/lib/gemini";
+import { rulesQualification } from "./qualification.ts";
+import { extractScoringSignals } from "./lead-scoring-signals.ts";
 import { buildTenantLeadFilter } from "@/lib/dashboard-query";
 import { validateFollowUp } from "@/lib/follow-up";
 import { resolveOwnerScope, ownerScopeMessage } from "@/lib/server/owner-scope";
@@ -50,14 +51,9 @@ export async function addLead(input: NewLead) {
   if (!scope.ok) return { error: ownerScopeMessage(scope.reason) };
 
   const value = validated.value;
-  // scoreLead only sends local, allowlisted intent booleans to Gemini.
-  const { score, reason } = await scoreLead({
-    name: value.name,
-    email: value.email || "",
-    phone: value.phone || "",
-    source: value.source,
-    notes: value.notes || "",
-  });
+  // Immediate local estimate; the insert-triggered durable job is the only
+  // model qualifier, avoiding a second provider call on manual creation.
+  const { score, summary: reason } = rulesQualification(extractScoringSignals(value));
 
   const { data, error } = await scope.supabase.from("leads").insert({
     user_id: scope.userId,
