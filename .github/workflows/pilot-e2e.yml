@@ -15,7 +15,7 @@ jobs:
           POSTGRES_PASSWORD: synthetic-only
           POSTGRES_DB: leadflow_jwt_browser
         ports: ['5432:5432']
-        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       PGHOST: 127.0.0.1
       PGPORT: '5432'
