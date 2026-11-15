@@ -27,6 +27,7 @@ jobs:
       LEADFLOW_PUBLIC_NEXT_FLOW: YES
       LEADFLOW_FEATURE_FLOW: YES
       LEADFLOW_PLAYWRIGHT_FLOW: YES
+      LEADFLOW_PRODUCT_FLOW: YES
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:

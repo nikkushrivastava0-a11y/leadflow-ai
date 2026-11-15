@@ -3,6 +3,7 @@ export type EnvIssue={name:string;code:"missing"|"invalid"|"unsafe_target"};
 const PRODUCTION_REF="pqzawjeggyxarwdkdynz";
 export function validateServerEnv(env:Env):EnvIssue[]{
  const issues:EnvIssue[]=[];
+ for(const name of ['PUBLIC_ENQUIRIES_ENABLED','LEADFLOW_AUTOMATION_ENABLED','LEADFLOW_EMAIL_ENABLED','LEADFLOW_FOLLOWUPS_ENABLED','LEADFLOW_WEEKLY_REPORTS_ENABLED','LEADFLOW_ONBOARDING_ENABLED','LEADFLOW_ANALYTICS_ENABLED','LEADFLOW_PRIVACY_NOTICE_ENABLED','LEADFLOW_PRIVACY_TOOLS_ENABLED','LEADFLOW_TRIALS_ENABLED','LEADFLOW_TEST_CHECKOUT_UI'])if(env[name]&&!['true','false'].includes(env[name]!))issues.push({name,code:'invalid'});
  const need=(name:string,valid:(v:string)=>boolean=()=>true)=>{const v=env[name];if(!v?.trim())issues.push({name,code:"missing"});else if(!valid(v))issues.push({name,code:"invalid"});};
  need("NEXT_PUBLIC_SUPABASE_URL",v=>{try{const u=new URL(v);return ["https:",...(env.LEADFLOW_SYNTHETIC_ONLY==="YES"?["http:"]:[])].includes(u.protocol)&&!u.username&&!u.password&&u.pathname==="/"&&!u.search&&!u.hash;}catch{return false;}});
  need("NEXT_PUBLIC_SUPABASE_ANON_KEY");

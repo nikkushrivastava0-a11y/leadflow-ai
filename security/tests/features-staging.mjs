@@ -48,6 +48,12 @@ assert.equal(q(other+'SELECT count(*) FROM lead_activity'),'0');
 assert.equal(q("SELECT count(*) FROM lead_activity WHERE event='qualification.fallback'"),'1');
 denied(owner+"INSERT INTO lead_activity(client_slug,event) VALUES('synthetic-a','forged')");
 console.log('PASS synthetic backup/restore, migration, queue lease/token, fallback activity, two-owner RLS');
+const leadId=q('SELECT id FROM leads');
+q(`INSERT INTO automation_jobs(dedupe_key,kind,client_slug,lead_id,status,attempts,token,leased_until) VALUES('exhaustion-fixture','qualification','synthetic-a','${leadId}','processing',6,gen_random_uuid(),now()-interval '1 minute')`);
+q("SET ROLE service_role; SELECT count(*) FROM automation_claim(ARRAY['qualification'],1)");
+assert.equal(q("SELECT status FROM automation_jobs WHERE dedupe_key='exhaustion-fixture'"),'dead');
+assert.equal(q("SELECT count(*) FROM lead_activity WHERE event='automation.exhausted'"),'1');
+console.log('PASS exhausted crash lease becomes dead with one safe activity entry');
 // Feature-specific checks are appended before rollback below.
 if(migrations.some(f=>f.includes('enquiry_notifications'))){
  assert.equal(q("SELECT count(*) FROM automation_jobs WHERE kind IN ('owner_alert','customer_confirmation')"),'2');
@@ -133,7 +139,9 @@ if(migrations.some(f=>f.includes('pilot_onboarding'))){
  assert.equal(q("SELECT trial_expires_at=trial_started_at+interval '14 days' FROM clients WHERE slug='"+slug+"'"),'t');
  denied(owner+"SELECT pilot_provision_workspace('33333333-3333-3333-3333-333333333333','biz-bbbbbbbbbbbbbbbbbbbb','Claim')");
  assert.equal(q(owner+"SELECT count(*) FROM clients WHERE slug='"+slug+"'"),'0');
- console.log('PASS confirmed, idempotent provisioning, finite trial and no owner self-claim RPC');
+ q("INSERT INTO auth.users VALUES('44444444-4444-4444-4444-444444444444','unconfirmed@example.test',NULL)");
+ denied("SET ROLE service_role; SELECT pilot_provision_workspace('44444444-4444-4444-4444-444444444444','biz-dddddddddddddddddddd','Unconfirmed')");
+ console.log('PASS confirmed/idempotent provisioning, finite trial, identity sequence, and no unconfirmed/self-claim RPC');
 }
 if(migrations.some(f=>f.includes('pilot_analytics'))){
  q("UPDATE leads SET created_at=now()-interval '2 hours',first_contacted_at=NULL,status='new',source_detail='instagram'");q(owner+"UPDATE leads SET status='contacted'");
@@ -143,6 +151,7 @@ if(migrations.some(f=>f.includes('pilot_analytics'))){
  console.log('PASS owner-scoped exact analytics/export and first response proxy');
 }
 if(migrations.some(f=>f.includes('pilot_privacy_tools'))){
+ denied(owner+"DELETE FROM leads WHERE client_slug='synthetic-a'");
  denied(owner+"SELECT pilot_erase_enquiry_contacts('11111111-1111-1111-1111-111111111111')");
  denied("SET ROLE service_role; SELECT pilot_erase_enquiry_contacts('11111111-1111-1111-1111-111111111111')");
  q("UPDATE automation_jobs SET status='done',leased_until=NULL,token=NULL WHERE client_slug='synthetic-a'");

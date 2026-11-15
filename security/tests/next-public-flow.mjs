@@ -45,7 +45,7 @@ export async function preparePublicIntake({sql,jwtSecret,gatewayPort}) {
       headers.authorization='Bearer '+serviceToken;return true;
     },
     failNextInsert(){failInsert=true;},
-    shouldFailInsert(path,method){if(failInsert&&path==='/rest/v1/leads'&&method==='POST'){failInsert=false;return true;}return false;},
+    shouldFailInsert(path,method){if(failInsert&&(path==='/rest/v1/leads'||path.startsWith('/rest/v1/rpc/merge_public_enquiry'))&&method==='POST'){failInsert=false;return true;}return false;},
     async listen(handler){server=createServer({key,cert},handler);await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(tlsPort,'127.0.0.1',resolve);});},
     async close(){if(server){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}rmSync(temp,{recursive:true,force:true});},
   };
@@ -74,10 +74,10 @@ export async function verifyPublicIntake({appBase,sql,fixture,http,ownerA,ownerB
     assert.equal(response.status,303,'Native actual bound action must redirect after submission');
     return {location:new URL(response.headers.get('location'),appBase),cookies:response.headers.getSetCookie()};
   }
-  const details={name:'Synthetic Public Next',email:'public-next@example.test',phone:'+91 9876543210',company_website:''};
+  const details={...(process.env.LEADFLOW_PRODUCT_FLOW==='YES'?{enquiry_consent:'on'}:{}),name:'Synthetic Public Next',email:'public-next@example.test',phone:'+91 9876543210',company_website:''};
   const before=sql('SELECT count(*) FROM public.leads');
   const forged=await http('/form/synthetic-a?success=true');assert.ok(forged.text.includes('Submission status unavailable'),'A query parameter cannot forge a saved receipt');
-  const saved=await submit('synthetic-a',details);assert.equal(saved.location.searchParams.get('success'),'true');
+  const saved=await submit('synthetic-a',details);assert.equal(saved.location.searchParams.get('success'),'true','Restricted service writer must persist the configured consent/merge path');
   assert.equal(sql("SELECT count(*) FROM public.leads WHERE name='Synthetic Public Next' AND client_slug='synthetic-a' AND user_id IS NULL"),'1');
   const receipt=saved.cookies.find(value=>value.startsWith('leadflow-enquiry-receipt='));assert.ok(receipt&&/HttpOnly/i.test(receipt)&&/Secure/i.test(receipt)&&/SameSite=lax/i.test(receipt),'Receipt must use protected cookie attributes');
   const receiptCookie=receipt.split(';')[0];

@@ -45,6 +45,7 @@ export async function runNextApplicationFlow({a,b,password,authBase,restBase,jwt
   // Proxy/certificate configuration is infrastructure, not provider credentials.
   for(const key of ['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','NO_PROXY','NODE_USE_ENV_PROXY','NODE_EXTRA_CA_CERTS','CODEX_PROXY_CERT']) if(process.env[key])safeEnv[key]=process.env[key];
   if(publicFixture)Object.assign(safeEnv,publicFixture.env);
+  if(process.env.LEADFLOW_PRODUCT_FLOW==='YES')Object.assign(safeEnv,{LEADFLOW_ONBOARDING_ENABLED:'true',LEADFLOW_ANALYTICS_ENABLED:'true',LEADFLOW_PRIVACY_NOTICE_ENABLED:'true',LEADFLOW_PRIVACY_TOOLS_ENABLED:'true',LEADFLOW_TRIALS_ENABLED:'true',LEADFLOW_DUPLICATE_MERGE_ENABLED:'true',PRIVACY_CONTACT_EMAIL:'privacy@example.test',LEADFLOW_PUBLIC_ORIGIN:'https://pilot.example.test'});
   const start=(args)=>{
     const child=spawn(process.execPath,['node_modules/next/dist/bin/next',...args],{env:safeEnv,stdio:['ignore','pipe','pipe']});children.push(child);
     // Drain logs privately; never print rendered responses, cookies or tokens.
@@ -107,8 +108,13 @@ export async function runNextApplicationFlow({a,b,password,authBase,restBase,jwt
     if(process.env.LEADFLOW_FEATURE_FLOW==='YES')await (await import('./next-features-http.mjs')).verifyFeatureHttp({appBase,ownerA,ownerB,sql,http});
     const unprovisioned=await ownerCookie(null,'pending-workspace@example.test',true);
     const pendingPage=await http('/dashboard',{cookie:unprovisioned.cookie()});
-    assert.equal(pendingPage.status,200);assert.ok(pendingPage.text.includes('Workspace access pending'),'verified signup without business must show pending workspace');assert.ok(!pendingPage.text.includes('A own')&&!pendingPage.text.includes('B own'),'unprovisioned signup cannot read another workspace');
-    pass('real local SDK signup cannot self-claim a business; actual dashboard shows pending workspace');
+    assert.equal(pendingPage.status,200);
+    if(process.env.LEADFLOW_PRODUCT_FLOW==='YES'){
+      assert.ok(!pendingPage.text.includes('Workspace access pending'),'confirmed signup should auto-provision its own workspace');
+      assert.equal(sql("SELECT count(*) FROM clients WHERE owner_email='pending-workspace@example.test'"),'1');
+    }else assert.ok(pendingPage.text.includes('Workspace access pending'),'verified signup without business must show pending workspace');
+    assert.ok(!pendingPage.text.includes('A own')&&!pendingPage.text.includes('B own'),'new signup cannot read another workspace');
+    pass('real local SDK signup preserves tenant isolation with the configured onboarding mode');
 
     // Exercise real refresh in Proxy from a standard expired SSR session cookie.
     const authNames=[...ownerA.jar.keys()].filter(name=>/^sb-.+-auth-token(?:\.\d+)?$/.test(name));

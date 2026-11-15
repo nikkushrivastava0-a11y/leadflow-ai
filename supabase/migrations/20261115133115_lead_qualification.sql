@@ -50,6 +50,13 @@ REVOKE ALL ON FUNCTION leadflow_private.enqueue_qualification() FROM PUBLIC,anon
 CREATE TRIGGER enqueue_qualification AFTER INSERT ON public.leads FOR EACH ROW EXECUTE FUNCTION leadflow_private.enqueue_qualification();
 CREATE FUNCTION public.automation_claim(p_kinds text[],p_limit integer DEFAULT 4) RETURNS SETOF public.automation_jobs
 LANGUAGE sql SECURITY INVOKER SET search_path=pg_catalog,public AS $$
+ WITH exhausted AS (
+  UPDATE public.automation_jobs SET status='dead',token=NULL,leased_until=NULL,finished_at=now()
+  WHERE attempts>=6 AND status='processing' AND leased_until<now() RETURNING client_slug,lead_id,kind
+ ), logged AS (
+  INSERT INTO public.lead_activity(client_slug,lead_id,event,details)
+  SELECT client_slug,lead_id,'automation.exhausted',jsonb_build_object('kind',kind) FROM exhausted RETURNING id
+ )
  UPDATE public.automation_jobs j SET status='processing', attempts=attempts+1, token=gen_random_uuid(), leased_until=now()+interval '5 minutes'
  WHERE j.id IN (
   SELECT id FROM public.automation_jobs WHERE kind=ANY(p_kinds) AND attempts<6 AND available_at<=now()

@@ -1,6 +1,7 @@
 BEGIN;
 DO $$BEGIN IF current_setting('leadflow.feature_migrations',true) IS DISTINCT FROM 'REVIEWED' THEN RAISE EXCEPTION 'Reviewed migration required'; END IF; END$$;
 ALTER TABLE public.leads ADD COLUMN consented_at timestamptz,ADD COLUMN notice_version text,ADD COLUMN anonymized_at timestamptz;
+GRANT SELECT(user_id,anonymized_at) ON public.leads TO service_role;
 GRANT INSERT(consented_at,notice_version) ON public.leads TO service_role;
 GRANT UPDATE(name,email,phone,notes,status,score,score_reason,next_follow_up_at,anonymized_at,source_campaign,consented_at,notice_version) ON public.leads TO service_role;
 GRANT UPDATE(trial_started_at) ON public.clients TO service_role;
@@ -32,4 +33,11 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.pilot_erase_enquiry_contacts(uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.pilot_erase_enquiry_contacts(uuid) TO service_role;
+CREATE FUNCTION leadflow_private.guard_active_lead_delete() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+BEGIN
+ IF EXISTS(SELECT FROM public.automation_jobs WHERE lead_id=OLD.id AND status='processing' AND leased_until>now()) THEN RAISE EXCEPTION 'Enquiry is processing; retry deletion later'; END IF;
+ RETURN OLD;
+END $$;
+REVOKE ALL ON FUNCTION leadflow_private.guard_active_lead_delete() FROM PUBLIC,anon,authenticated;
+CREATE TRIGGER guard_active_lead_delete BEFORE DELETE ON public.leads FOR EACH ROW EXECUTE FUNCTION leadflow_private.guard_active_lead_delete();
 COMMIT;
