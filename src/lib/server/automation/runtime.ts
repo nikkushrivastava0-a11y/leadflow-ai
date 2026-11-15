@@ -1,6 +1,7 @@
 import "server-only";
 import { createPublicSubmissionClient } from "@/lib/server/public-submission-client";
 import { qualifyLead } from "@/lib/qualification";
+import { processWeeklyReport } from "./weekly.ts";
 import { processFollowup } from "./followup.ts";
 import { processNotification } from "./email.ts";
 import { timingSafeEqual } from "node:crypto";
@@ -18,6 +19,7 @@ export function automationDb() {
 }
 export type AutomationDb = ReturnType<typeof automationDb>;
 export async function processJob(db: AutomationDb, job: Job): Promise<Record<string, unknown>> {
+  if (job.kind === "weekly_report") return processWeeklyReport(db, job);
   if (job.kind === "followup") return processFollowup(db, job);
   if (["owner_alert", "customer_confirmation"].includes(job.kind)) return processNotification(db, job);
   if (job.kind !== "qualification" || !job.lead_id) throw new Error("unsupported_job");
@@ -36,8 +38,12 @@ export async function runAutomation(request: Request) {
       const { error } = await db.rpc("automation_schedule_followups");
       if (error) throw new Error("followup_schedule_failed");
     }
+    if (process.env.LEADFLOW_EMAIL_ENABLED === "true" && process.env.LEADFLOW_WEEKLY_REPORTS_ENABLED === "true") {
+      const { error } = await db.rpc("automation_schedule_weekly");
+      if (error) throw new Error("weekly_schedule_failed");
+    }
     // Process bounded batches; claims use SKIP LOCKED plus token-owned leases.
-    const { data: jobs, error } = await db.rpc("automation_claim", { p_kinds: ["qualification", ...(process.env.LEADFLOW_EMAIL_ENABLED === "true" ? ["owner_alert", "customer_confirmation", ...(process.env.LEADFLOW_FOLLOWUPS_ENABLED === "true" ? ["followup"] : [])] : [])], p_limit: 2 });
+    const { data: jobs, error } = await db.rpc("automation_claim", { p_kinds: ["qualification", ...(process.env.LEADFLOW_EMAIL_ENABLED === "true" ? ["owner_alert", "customer_confirmation", ...(process.env.LEADFLOW_WEEKLY_REPORTS_ENABLED === "true" ? ["weekly_report"] : []), ...(process.env.LEADFLOW_FOLLOWUPS_ENABLED === "true" ? ["followup"] : [])] : [])], p_limit: 2 });
     if (error) throw new Error("claim_failed");
     let completed = 0, failed = 0;
     for (const job of (jobs || []) as Job[]) {
