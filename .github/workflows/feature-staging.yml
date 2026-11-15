@@ -37,4 +37,5 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm run build
+      - run: node scripts/staging-startup-smoke.mjs
       - run: node scripts/http-smoke.mjs

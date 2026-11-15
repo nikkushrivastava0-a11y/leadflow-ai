@@ -1,4 +1,18 @@
-# LeadFlow AI release candidate — 2026-11-13 IST
+# LeadFlow AI release candidate
+
+## Current continuation — 16 November 2026 IST
+
+- [x] Recover and verify drafts through #73 and successful exact-head synthetic regression/browser CI.
+- [x] Identify free staging failure: both active free slots occupied; preserve both existing apps.
+- [x] Add secret-safe preflight and refuse all invalid staging startup configurations; reject hosted synthetic bypass.
+- [x] Add actual built-app startup rejection checks to CI and refresh current handoff.
+- [ ] Supply an approved isolated free hosted staging slot/configuration; generic previews cannot use production DB.
+- [ ] Complete hosted Auth/provider TEST acceptance and real backup/restore gate under separately approved data scope.
+- [ ] Review exact source/migrations and obtain production approval before production data operations/release.
+
+The checklist below is historical; current external blockers are in BLOCKERS.md.
+
+## Historical baseline — 13 November 2026 IST
 
 - [x] Establish ancestry: PR54 contains PR53 and PR49; reuse without duplicate merges.
 - [x] Inspect actual live schema and aggregate audit without customer PII or mutations.

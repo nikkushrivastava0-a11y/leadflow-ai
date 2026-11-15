@@ -1,4 +1,15 @@
-# LeadFlow AI — execution evidence, 2026-11-13 IST
+# LeadFlow AI — execution evidence
+
+## Current continuation — 16 November 2026 IST
+
+- Recovered drafts through #73, stacked on unmerged #55. Both exact-head #73 CI runs succeeded: feature/regression `43750426381`, Chromium `43750426358`. This supersedes older browser-unverified notes for the synthetic fixture only.
+- Fresh account inventory and staging creation rejection identify the blocker: two active free-project slots used by LeadFlow and DeadEnd across organizations. No project created, paused, restored or upgraded.
+- Read Vercel variable metadata without decrypting secrets. Generic previews still share DB/provider settings with production; #55 branch overrides do not configure later release branches.
+- Found staging startup refused unsafe DB targets but only logged other invalid configuration. Added refusal for every staging validation error and rejected the synthetic-test flag on hosted Vercel.
+- Added `npm run check:staging`: configuration-only, no network, sanitized issues and nonzero failure status. Added actual built-app negative startup checks to feature CI. Refreshed current blockers without presenting historical row counts as a new production audit.
+- No production data/schema/configuration writes, paid plan, main merge, customer mail or provider charge performed. New draft validation evidence is recorded in its PR; hosted acceptance/backup remain blocked.
+
+## Historical evidence — 13 November 2026 IST
 
 ## Source baseline
 

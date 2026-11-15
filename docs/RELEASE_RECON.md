@@ -1,6 +1,14 @@
 # Release recon — 15 November 2026
 
-## Observed environment mapping
+## Continued recon — 16 November 2026 IST
+
+Current account inventory and a new free staging creation attempt clarified the prior INVALID_ARGUMENT: the owner already has two active free projects (LeadFlow and DeadEnd) across organizations. No stage was created, no project paused, and no paid fallback attempted. Continue disposable local/CI verification until an isolated free slot is explicitly selected. Other inactive projects remain unclassified and untouched.
+
+Vercel metadata-only inspection still shows DB/provider variables shared with generic previews; original #55 branch overrides do not apply to later branches. No values were decrypted or edited. `npm run check:staging` validates configuration without DB/provider requests. Preview/staging startup now refuses all configuration errors; hosted Vercel rejects the synthetic-test bypass.
+
+The current GitHub stack extends through #73; its exact-head synthetic regression and Chromium Actions runs both pass. See BLOCKERS.md for links and remaining hosted/provider/backup gates. Observations below are historical, not a new read of production data.
+
+## Observed environment mapping — 15 November
 - Production Vercel project: leadflow-ai / prj_XJLZNa5XhPYdH1GiXBEzH9rU2CsU.
 - Production alias leadflow-ai-flame.vercel.app targets main commit c39a0ef; no release of #55–#63.
 - Production public Supabase URL identifies pqzawjeggyxarwdkdynz. Its URL variable also targets generic previews. Never treat those previews as isolated staging.

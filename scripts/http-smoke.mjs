@@ -9,6 +9,8 @@ const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "star
     NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
     NEXT_PUBLIC_SUPABASE_ANON_KEY: "dummy-build-only-key",
     NEXT_TELEMETRY_DISABLED: "1",
+    LEADFLOW_ENV: "staging",
+    LEADFLOW_STAGING_PROJECT_REF: "example",
     PUBLIC_ENQUIRIES_ENABLED: "false",
     SUPABASE_SECRET_KEY: "",
     GEMINI_API_KEY: "",
