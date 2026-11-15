@@ -49,6 +49,29 @@ assert.equal(q("SELECT count(*) FROM lead_activity WHERE event='qualification.fa
 denied(owner+"INSERT INTO lead_activity(client_slug,event) VALUES('synthetic-a','forged')");
 console.log('PASS synthetic backup/restore, migration, queue lease/token, fallback activity, two-owner RLS');
 // Feature-specific checks are appended before rollback below.
+if(migrations.some(f=>f.includes('enquiry_notifications'))){
+ assert.equal(q("SELECT count(*) FROM automation_jobs WHERE kind IN ('owner_alert','customer_confirmation')"),'2');
+ const emailJob=JSON.parse(q("SET ROLE service_role; SELECT row_to_json(j) FROM automation_claim(ARRAY['owner_alert'],1) j"));
+ const prepared=JSON.parse(q(`SET ROLE service_role; SELECT automation_prepare_email('${emailJob.id}','${emailJob.token}','{"to":"a@example.test","text":"one"}')`));
+ const repeat=JSON.parse(q(`SET ROLE service_role; SELECT automation_prepare_email('${emailJob.id}','${emailJob.token}','{"to":"changed@example.test","text":"two"}')`));
+ assert.deepEqual(prepared.message,repeat.message,'Email retry must retain original recipient and content');
+ denied(owner+'SELECT * FROM email_deliveries');
+ denied(`SET ROLE service_role; UPDATE email_deliveries SET message='{}'`);
+ console.log('PASS notification enqueue, immutable email snapshot, private outbox');
+}
+if(migrations.some(f=>f.includes('followup_engine'))){
+ q("UPDATE leads SET created_at=now()-interval '25 hours'");
+ assert.equal(q('SET ROLE service_role; SELECT automation_schedule_followups()'),'1');
+ assert.equal(q('SET ROLE service_role; SELECT automation_schedule_followups()'),'0');
+ q("UPDATE leads SET created_at=now()-interval '73 hours'");assert.equal(q('SET ROLE service_role; SELECT automation_schedule_followups()'),'1');
+ q("UPDATE leads SET created_at=now()-interval '169 hours'");assert.equal(q('SET ROLE service_role; SELECT automation_schedule_followups()'),'1');
+ q("UPDATE leads SET status='contacted'");assert.equal(q('SET ROLE service_role; SELECT automation_schedule_followups()'),'0');
+ q(owner+"INSERT INTO automation_settings(client_slug,brand_voice) VALUES('synthetic-a','professional')");
+ assert.equal(q(other+'SELECT count(*) FROM automation_settings'),'0');
+ denied(other+"INSERT INTO automation_settings(client_slug) VALUES('synthetic-a')");
+ console.log('PASS followup 24h/3d/7d dedupe, status exclusion and preference RLS');
+}
+
 // FEATURE_CHECKS
 const rollbacks=readdirSync('supabase/rollbacks').filter(x=>x.endsWith('.sql')&&readFileSync('supabase/rollbacks/'+x,'utf8').trim()).sort().reverse();
 for(const f of rollbacks)q(readFileSync('supabase/rollbacks/'+f,'utf8'));
