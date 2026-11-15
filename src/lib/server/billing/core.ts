@@ -10,6 +10,7 @@ export type Provider = {
   fetchPayment(id: string): Promise<ProviderPayment>;
 };
 export type Store = {
+  recordFailure?(input: {eventId:string;bodyHash:string;orderId:string;paymentId:string;amount:number;currency:string}): Promise<void>;
   reserveAttempt(owner: Owner, receipt: string): Promise<void>;
   createOrder(order: LedgerOrder): Promise<void>;
   getOrder(id: string): Promise<LedgerOrder | null>;
@@ -73,7 +74,7 @@ export async function webhook(raw: Buffer, signature: unknown, eventId: unknown,
   try { event = JSON.parse(raw.toString("utf8")); } catch { throw new BillingError("Invalid webhook payload."); }
   if (!object(event) || typeof event.event !== "string") throw new BillingError("Invalid webhook payload.");
   const disputed = ["payment.dispute.created", "payment.dispute.lost", "payment.dispute.under_review", "payment.dispute.action_required"].includes(event.event);
-  if (!["payment.captured", "refund.processed"].includes(event.event) && !disputed) return { mode: "test", status: "ignored" };
+  if (!["payment.captured", "payment.failed", "refund.processed"].includes(event.event) && !disputed) return { mode: "test", status: "ignored" };
   if (!object(event.payload)) throw new BillingError("Invalid webhook payment.");
   const item = disputed ? event.payload.dispute : event.event === "refund.processed" ? event.payload.refund : event.payload.payment;
   if (!object(item) || !object(item.entity)) throw new BillingError("Invalid webhook payment.");
@@ -83,6 +84,11 @@ export async function webhook(raw: Buffer, signature: unknown, eventId: unknown,
   if (!providerId(payment.order_id, "order_")) throw new BillingError("Invalid provider order.");
   // Lookups are by exact provider order ID; the database independently checks every field.
   if (payment.id !== paymentId || !Number.isSafeInteger(payment.amount) || payment.amount <= 0 || payment.currency !== "INR" || !Number.isSafeInteger(payment.amount_refunded) || payment.amount_refunded < 0 || payment.amount_refunded > payment.amount) throw new BillingError("Invalid provider payment.");
+  if (event.event === "payment.failed") {
+    if (payment.status !== "failed" || payment.captured !== false || !store.recordFailure) throw new BillingError("Failed payment not confirmed by provider.",409);
+    await store.recordFailure({eventId:`webhook:${eventId}`,bodyHash:createHash("sha256").update(raw).digest("hex"),orderId:payment.order_id,paymentId,amount:payment.amount,currency:payment.currency});
+    return {mode:"test",status:"failed_recorded"};
+  }
   let state: "captured" | "revoked";
   if (disputed || payment.amount_refunded > 0) state = "revoked";
   else if (event.event === "refund.processed") throw new BillingError("Refund not confirmed by provider.", 409);

@@ -110,3 +110,12 @@ test("truthy non-boolean captured fields cannot grant test access",async()=>{
   assert.equal(s.calls.includes("process"),false);
  }
 });
+
+test("signed failed payment is recorded without granting or revoking an entitlement",async()=>{
+ const s=setup();let record:unknown;s.setPayment({status:"failed",captured:false});
+ s.store.recordFailure=async(input)=>{record=input;};
+ const raw=Buffer.from(JSON.stringify({event:"payment.failed",payload:{payment:{entity:{id:"pay_synthetic"}}}}));
+ assert.equal((await webhook(raw,sign(raw,config.webhookSecret),"evt_failed",config,s.provider,s.store)).status,"failed_recorded");
+ assert.equal((record as {orderId:string}).orderId,"order_synthetic");assert.equal(s.calls.includes("process"),false);
+ s.setPayment({status:"captured",captured:true});await assert.rejects(webhook(raw,sign(raw,config.webhookSecret),"evt_failed2",config,s.provider,s.store),/not confirmed/);
+});

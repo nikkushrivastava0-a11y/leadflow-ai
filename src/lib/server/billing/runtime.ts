@@ -13,6 +13,10 @@ function runtime() {
   if (parsed.protocol !== "https:" || !parsed.hostname.endsWith(".supabase.co") || parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash) throw new BillingError("Test billing configuration unavailable.",503);
   const db = createClient(parsed.origin,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
   const store: Store = {
+    async recordFailure(input) {
+      const {error}=await db.rpc("billing_test_record_failure",{p_event:input.eventId,p_hash:input.bodyHash,p_provider_order:input.orderId,p_payment:input.paymentId,p_amount:input.amount,p_currency:input.currency}).abortSignal(AbortSignal.timeout(4000));
+      if(error)throw new BillingError("Failed test payment could not be recorded.",503);
+    },
     async reserveAttempt(owner, receipt) {
       const {error}=await db.rpc("billing_test_reserve_attempt",{p_id:receipt,p_owner:owner.userId,p_slug:owner.slug}).abortSignal(AbortSignal.timeout(4000));
       if(error) throw new BillingError("Test checkout limit reached or unavailable. Try later.",429);

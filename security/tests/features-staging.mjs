@@ -85,6 +85,21 @@ if(migrations.some(f=>f.includes('duplicate_merge'))){
  q("DELETE FROM leads WHERE client_slug='synthetic-b'");
  console.log('PASS tenant-scoped exact-contact merge, preserved status/score/notes/name, denied owner RPC');
 }
+if(migrations.some(f=>f.includes('billing_test_access'))){
+ q("SET ROLE service_role; SELECT billing_test_reserve_attempt('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','11111111-1111-1111-1111-111111111111','synthetic-a'); SELECT billing_test_create_order('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','11111111-1111-1111-1111-111111111111','synthetic-a','order_features','pilot',50000,'INR',30)");
+ q("SET ROLE service_role; SELECT billing_test_record_failure('evt_failed',repeat('a',64),'order_features','pay_failed',50000,'INR')");
+ q("SET ROLE service_role; SELECT billing_test_record_failure('evt_failed',repeat('a',64),'order_features','pay_failed',50000,'INR')");
+ assert.equal(q('SELECT count(*) FROM billing_test_failures'),'1');assert.equal(q('SELECT count(*) FROM billing_test_entitlements'),'0');
+ denied("SET ROLE service_role; SELECT billing_test_record_failure('evt_failed',repeat('b',64),'order_features','pay_failed',50000,'INR')");
+ q("SET ROLE service_role; SELECT billing_test_process_event('evt_paid',repeat('c',64),'order_features','pay_paid',50000,'INR','captured')");
+ const active="SELECT count(*) FROM billing_test_entitlements WHERE revoked_at IS NULL AND expires_at>now()";
+ assert.equal(q(owner+active),'1');assert.equal(q(other+active),'0');
+ q("UPDATE billing_test_entitlements SET expires_at=now()-interval '1 second'");assert.equal(q(owner+active),'0');
+ q("UPDATE billing_test_entitlements SET expires_at=now()+interval '1 day'");
+ q("SET ROLE service_role; SELECT billing_test_process_event('evt_revoke',repeat('d',64),'order_features','pay_paid',50000,'INR','revoked')");assert.equal(q(owner+active),'0');
+ denied(owner+"UPDATE billing_test_entitlements SET revoked_at=NULL");
+ console.log('PASS failed-payment idempotency, captured test access, tenant isolation, expiry, revocation');
+}
 // FEATURE_CHECKS
 const rollbacks=readdirSync('supabase/rollbacks').filter(x=>x.endsWith('.sql')&&readFileSync('supabase/rollbacks/'+x,'utf8').trim()).sort().reverse();
 for(const f of rollbacks)q(readFileSync('supabase/rollbacks/'+f,'utf8'));
