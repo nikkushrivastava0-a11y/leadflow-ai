@@ -139,20 +139,16 @@ export default async function DynamicLeadForm(props: {
       redirect("/form/" + encodeURIComponent(slug) + "?error=business");
     }
 
-    // The reservation prevents rapid duplicates during a DB write.
-    // Without a unique DB constraint, this is NOT an exactly-once guarantee.
+    // The shared guard always runs first. Optional SQL merging serializes
+    // matching tenant/contact pairs and preserves existing CRM fields.
     let insertFailed = false;
     try {
-      const { error } = await supabase.from("leads").insert([{
-        name,
-        email,
-        phone,
-        source: "Website Form",
-        status: "new",
-        score: 50,
-        score_reason: "Unscored enquiry (AI analysis has not run).",
-        client_slug: slug,
-      }]);
+      const { error } = process.env.LEADFLOW_DUPLICATE_MERGE_ENABLED === "true"
+        ? await supabase.rpc("merge_public_enquiry", { p_slug: slug, p_name: name, p_email: email, p_phone: phone })
+        : await supabase.from("leads").insert([{
+          name, email, phone, source: "Website Form", status: "new", score: 50,
+          score_reason: "Unscored enquiry (AI analysis has not run).", client_slug: slug,
+        }]);
       if (error) {
         console.error("Public enquiry insert failed:", error.code || "unknown");
         insertFailed = true;
