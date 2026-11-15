@@ -5,6 +5,7 @@ import test from "node:test";
 import vm from "node:vm";
 import ts from "typescript";
 import { isValidBusinessSlug, validatePublicLead } from "../src/lib/public-leads.ts";
+import * as privacy from "../src/lib/privacy.ts";
 import * as locales from "../src/lib/enquiry-locale.ts";
 import * as analytics from "../src/lib/lead-analytics.ts";
 import * as receipts from "../src/lib/server/public-enquiry-receipt.ts";
@@ -15,7 +16,7 @@ const compiled = ts.transpileModule(readFileSync(new URL("../src/app/form/[slug]
 }).outputText;
 const secret = "synthetic-form-action-secret-not-live";
 
-function fixture({ mergeEnabled = false, enabled = true, business = { slug: "business-a", owner_user_id: "synthetic-owner" }, insertError = null, committed = true, receipt } = {}) {
+function fixture({ privacyEnabled = false, mergeEnabled = false, enabled = true, business = { slug: "business-a", owner_user_id: "synthetic-owner" }, insertError = null, committed = true, receipt } = {}) {
   const events = [];
   const jar = new Map(receipt ? [[receipts.ENQUIRY_RECEIPT_COOKIE, receipt]] : []);
   const client = {
@@ -32,6 +33,7 @@ function fixture({ mergeEnabled = false, enabled = true, business = { slug: "bus
     },
   };
   const dependencies = {
+    "@/lib/privacy": privacy,
     "@/lib/enquiry-locale": locales,
     "@/lib/lead-analytics": analytics,
     "react/jsx-runtime": require("react/jsx-runtime"),
@@ -54,7 +56,7 @@ function fixture({ mergeEnabled = false, enabled = true, business = { slug: "bus
   };
   const loadedModule = { exports: {} };
   vm.runInNewContext(compiled, { module: loadedModule, exports: loadedModule.exports,
-    process: { env: { PUBLIC_ENQUIRIES_ENABLED: enabled ? "true" : undefined, LEADFLOW_DUPLICATE_MERGE_ENABLED: mergeEnabled ? "true" : undefined, LEAD_GUARD_HASH_SECRET: secret, NODE_ENV: "production" } },
+    process: { env: { PUBLIC_ENQUIRIES_ENABLED: enabled ? "true" : undefined, LEADFLOW_PRIVACY_NOTICE_ENABLED: privacyEnabled?"true":undefined, LEADFLOW_DUPLICATE_MERGE_ENABLED: mergeEnabled ? "true" : undefined, LEAD_GUARD_HASH_SECRET: secret, NODE_ENV: "production" } },
     console: { error() {}, warn() {} },
     require: name => { assert.ok(Object.hasOwn(dependencies, name), `Unexpected import: ${name}`); return dependencies[name]; },
   });
@@ -147,3 +149,5 @@ test("merge path retains validation, shared guard and save receipt", async()=>{
  assert.ok(f.events.findIndex(e=>e[0]==="reserve")<f.events.findIndex(e=>e[0]==="merge"));assert.equal(f.jar.size,1);
  const failed=fixture({mergeEnabled:true,insertError:{code:"synthetic"}});assert.match(await submit(failed),/error=save/);assert.equal(failed.jar.size,0);
 });
+
+test("privacy notice requires server-checked consent before any guard/write",async()=>{const f=fixture({privacyEnabled:true});assert.match(await submit(f),/error=invalid/);assert.equal(f.events.length,0);const form=input();form.set("enquiry_consent","on");assert.match(await submit(f,form),/success=true/);const row=f.events.find(e=>e[0]==="insert")[1][0];assert.ok(row.consented_at);assert.equal(row.notice_version,privacy.PRIVACY_NOTICE_VERSION);});

@@ -105,7 +105,7 @@ export default async function DashboardPage({
         <h1 className="text-xl font-bold">LeadFlow AI</h1>
         <div className="flex flex-wrap items-center gap-3">
           <span className="max-w-48 truncate text-sm text-slate-500" title={scope.email}>{scope.email}</span>
-          <nav aria-label="Workspace tools" className="flex flex-wrap gap-3 text-sm underline"><a href="/dashboard/analytics">Analytics & CSV</a><a href="/dashboard/embed">Embed form</a><a href="/dashboard/activity">Activity & drafts</a><a href="/dashboard/settings">Preferences</a><a href="/dashboard/billing">Billing sandbox</a></nav>
+          <nav aria-label="Workspace tools" className="flex flex-wrap gap-3 text-sm underline"><a href="/dashboard/data">Data controls</a><a href="/dashboard/analytics">Analytics & CSV</a><a href="/dashboard/embed">Embed form</a><a href="/dashboard/activity">Activity & drafts</a><a href="/dashboard/settings">Preferences</a><a href="/dashboard/billing">Billing sandbox</a></nav>
           <UpgradeButton />
           <LogoutButton />
         </div>

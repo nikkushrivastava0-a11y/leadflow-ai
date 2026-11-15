@@ -1,3 +1,4 @@
+import { acceptsEnquiryConsent, PRIVACY_NOTICE_VERSION } from "@/lib/privacy";
 import { enquiryLanguage, enquiryCopy } from "@/lib/enquiry-locale";
 import { attribution } from "@/lib/lead-analytics";
 import { createPublicSubmissionClient } from "@/lib/server/public-submission-client";
@@ -91,6 +92,8 @@ export default async function DynamicLeadForm(props: {
   async function submitLead(formData: FormData) {
     "use server";
     if (!intakeEnabled()) redirect(`/form/${encodeURIComponent(slug)}?error=guard${suffix}`);
+    const privacyEnabled=process.env.LEADFLOW_PRIVACY_NOTICE_ENABLED === "true";
+    if(privacyEnabled&&!acceptsEnquiryConsent(formData.get("enquiry_consent")))redirect(`/form/${slug}?error=invalid${suffix}`);
     const validated = validatePublicLead(formData);
     if (!validated.ok) {
       redirect("/form/" + encodeURIComponent(slug) + "?error=invalid" + suffix);
@@ -150,9 +153,9 @@ export default async function DynamicLeadForm(props: {
     let insertFailed = false;
     try {
       const { error } = process.env.LEADFLOW_DUPLICATE_MERGE_ENABLED === "true"
-        ? await supabase.rpc(trackEnabled?"merge_public_enquiry_tracked":"merge_public_enquiry", { p_slug: slug, p_name: name, p_email: email, p_phone: phone, ...(trackEnabled?{p_source:tracked.source_detail,p_campaign:tracked.source_campaign}:{}) })
+        ? await supabase.rpc(privacyEnabled?"merge_public_enquiry_consented":trackEnabled?"merge_public_enquiry_tracked":"merge_public_enquiry", { p_slug: slug, p_name: name, p_email: email, p_phone: phone, ...((trackEnabled||privacyEnabled)?{p_source:tracked.source_detail,p_campaign:tracked.source_campaign}:{}) })
         : await supabase.from("leads").insert([{
-          ...(trackEnabled?tracked:{}), name, email, phone, source: "Website Form", status: "new", score: 50,
+          ...(privacyEnabled?{consented_at:new Date().toISOString(),notice_version:PRIVACY_NOTICE_VERSION}:{}), ...(trackEnabled?tracked:{}), name, email, phone, source: "Website Form", status: "new", score: 50,
           score_reason: "Unscored enquiry (AI analysis has not run).", client_slug: slug,
         }]);
       if (error) {
@@ -166,7 +169,7 @@ export default async function DynamicLeadForm(props: {
 
     if (insertFailed) {
       await reservation.release();
-      redirect("/form/" + encodeURIComponent(slug) + "?error=save");
+      redirect("/form/" + encodeURIComponent(slug) + "?error=save" + suffix);
     }
 
     const committed = await reservation.complete();
@@ -239,6 +242,8 @@ export default async function DynamicLeadForm(props: {
             <label htmlFor="lead-phone" className="mb-1 block text-sm font-medium text-[#a65d31]">{copy.phone}</label>
             <input required id="lead-phone" type="tel" name="phone" autoComplete="tel" maxLength={25} className="w-full rounded-md border border-[#a65d31] p-2 outline-none focus:ring-2 focus:ring-[#a65d31] transition-colors" placeholder="+91 98765 43210" />
           </div>
+          {process.env.LEADFLOW_PRIVACY_NOTICE_ENABLED === "true"?<label className="flex items-start gap-2 text-sm text-slate-700"><input required type="checkbox" name="enquiry_consent" className="mt-1"/>{copy.consent}</label>:null}
+          <p className="text-xs"><a className="underline" href="/privacy">Privacy / गोपनीयता</a> · <a className="underline" href="/terms">Terms</a></p>
           <button type="submit" className="mt-4 w-full rounded-md bg-[#a65d31] p-2.5 text-white hover:bg-[#8a4b26] font-semibold transition-colors">
             {copy.submit}
           </button>

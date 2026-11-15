@@ -142,6 +142,19 @@ if(migrations.some(f=>f.includes('pilot_analytics'))){
  assert.equal(JSON.parse(q(owner+"SELECT pilot_export_leads('synthetic-a')")).length,1);
  console.log('PASS owner-scoped exact analytics/export and first response proxy');
 }
+if(migrations.some(f=>f.includes('pilot_privacy_tools'))){
+ denied(owner+"SELECT pilot_erase_enquiry_contacts('11111111-1111-1111-1111-111111111111')");
+ denied("SET ROLE service_role; SELECT pilot_erase_enquiry_contacts('11111111-1111-1111-1111-111111111111')");
+ q("UPDATE automation_jobs SET status='done',leased_until=NULL,token=NULL WHERE client_slug='synthetic-a'");
+ q("INSERT INTO leads(client_slug,name,email,phone,source) VALUES('synthetic-b','Other private','other@example.test','8888888888','manual')");
+ assert.equal(q("SET ROLE service_role; SELECT pilot_erase_enquiry_contacts('11111111-1111-1111-1111-111111111111')"),'1');
+ assert.equal(q("SELECT name||'|'||(email IS NULL)::text||'|'||(notes IS NULL)::text FROM leads WHERE client_slug='synthetic-a'"),'Deleted enquiry|true|true');
+ assert.equal(q("SELECT name FROM leads WHERE client_slug='synthetic-b'"),'Other private');
+ assert.equal(q("SELECT count(*) FROM automation_jobs WHERE client_slug='synthetic-a' AND lead_id IS NOT NULL"),'0');
+ assert.equal(q("SET ROLE service_role; SELECT pilot_erase_enquiry_contacts('11111111-1111-1111-1111-111111111111')"),'0');
+ q("DELETE FROM leads WHERE client_slug='synthetic-b'");
+ console.log('PASS erasure exact owner, active-job refusal, cross-owner preservation, idempotency and queue cancellation');
+}
 // FEATURE_CHECKS
 const rollbacks=readdirSync('supabase/rollbacks').filter(x=>x.endsWith('.sql')&&readFileSync('supabase/rollbacks/'+x,'utf8').trim()).sort().reverse();
 for(const f of rollbacks)q(readFileSync('supabase/rollbacks/'+f,'utf8'));

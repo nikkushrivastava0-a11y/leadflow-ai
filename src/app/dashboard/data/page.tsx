@@ -1,0 +1,11 @@
+import {resolveOwnerScope} from '@/lib/server/owner-scope';import {createPublicSubmissionClient} from '@/lib/server/public-submission-client';import {erasureConfirmed} from '@/lib/privacy';import {redirect} from 'next/navigation';
+export default async function DataTools({searchParams}:{searchParams:Promise<{erased?:string}>}){
+ const owner=await resolveOwnerScope();if(!owner.ok)redirect('/login');const params=await searchParams;
+ if(process.env.LEADFLOW_PRIVACY_TOOLS_ENABLED!=='true')return <main className="p-8">Data tools are not available yet.</main>;
+ async function erase(form:FormData){'use server';
+  if(process.env.LEADFLOW_PRIVACY_TOOLS_ENABLED!=='true'||!erasureConfirmed(form.get('confirmation')))throw new Error('Type the exact confirmation before erasing');
+  const scope=await resolveOwnerScope();if(!scope.ok)redirect('/login');const db=createPublicSubmissionClient();if(!db)throw new Error('Erasure unavailable');
+  const {error}=await db.rpc('pilot_erase_enquiry_contacts',{p_user:scope.userId});if(error)throw new Error('Erasure could not finish. An active reminder may be processing; retry later.');redirect('/dashboard/data?erased=1');
+ }
+ return <main className="mx-auto max-w-2xl space-y-6 p-8"><h1 className="text-2xl font-semibold">Your enquiry data</h1>{params.erased==='1'?<p role="status">Erasure request completed. Contact data is removed from active enquiries.</p>:null}<a className="underline" href="/api/data/export">Download business profile and enquiry records (JSON)</a><section className="space-y-3 rounded border border-red-700 p-4"><h2 className="text-xl font-semibold">Erase all enquiry contact data</h2><p>This removes names, contacts, notes, qualification content and queued messages for this workspace’s enquiries. It preserves your account, business mapping, aggregate reports and restricted audit/payment records. There is no restore button; export first if needed.</p><form action={erase} className="space-y-3"><label className="block">Type ERASE ENQUIRY DATA<input name="confirmation" required autoComplete="off" className="mt-2 block w-full rounded border p-2"/></label><button className="rounded border border-red-700 px-4 py-2" type="submit">Erase enquiry contact data</button></form></section><a href="/dashboard" className="underline">Back to leads</a></main>;
+}
